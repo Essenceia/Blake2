@@ -3,3 +3,4 @@
 !*.v
 !*.vhd
 !.gitignore
+!rfc7693.txt
