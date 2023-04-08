@@ -1,21 +1,21 @@
 `timescale 1ns / 1ps
 	 
-	// G Rotation | (R1, R2, R3, R4)
-	// constants  | (32, 24, 16, 63) 
+// G Rotation | (R1, R2, R3, R4)
+// constants  | (32, 24, 16, 63) 
 	
 
-module right_rot
-	#(parameter ROT_I=32,
-	  parameter W=64)
-	  (
-	  input  [W-1:0] data_i,
-	  output [W-1:0] data_o
-	  );
+module right_rot #(
+	parameter ROT_I=32,
+	parameter W=64)
+	(
+	input  [W-1:0] data_i,
+	output [W-1:0] data_o
+	);
 	assign data_o[W-1:0] = { data_i[ROT_I-1:0], data_i[W-1:ROT_I]};
 endmodule
 
-module addder_3way
-	#(	parameter W=64)
+module addder_3way #(
+	parameter W=64)
 	(
 	input [W-1:0] x0_i,
 	input [W-1:0] x1_i,
@@ -31,8 +31,7 @@ module addder_3way
 	assign { unused_carry, y_o } = x2_i + { carry , tmp };
 endmodule
 
-module compression
-	#(
+module compression #(
 	parameter W  = 64, 
 	parameter LL_b = { {(W*2)-9{1'b0}}, 9'b100000000},
 	parameter F_b = 1'b1, // final block flag
@@ -53,63 +52,63 @@ module compression
 	
 	output [(W*8) -1:0] h_o,    
 	output              valid_o
-    );
+	);
 	 
-	 reg  [3:0] fsm_q;
-	 wire [3:0] fsm_next;
-	 wire       fsm_en;
-	 wire       v_en;
-	 wire       final_round;
-	 
-	 wire [W-1:0] v_init[15:0];
-	 wire [W-1:0] v_init_2[15:0];
-	 wire [W-1:0] v_next[15:0];
-	 wire [W-1:0] v_current[15:0];
-	 reg  [W-1:0] v_q[15:0];
-	 wire [W-1:0] v_p0[15:0]; // part 0
-	 wire [W-1:0] v_p1[15:0]; // part 1
-	 wire [W-1:0] v_p2[15:0]; // part 2
-	 wire [W-1:0] v_p3[15:0]; // part 3
-	 wire [1:0]   unused_v_add_carry_p0[15:0]; // part 0
-	 wire [1:0]   unused_v_add_carry_p1[15:0]; // part 1
-	 wire [1:0]   unused_v_add_carry_p2[15:0]; // part 2
-	 wire [1:0]   unused_v_add_carry_p3[15:0]; // part 3
-	 
-	 reg  [W-1:0] m_q[15:0]; // stay the same for the entire periode 
-	 wire [W-1:0] m_current[15:0];
-	 wire [W-1:0] m_prime[15:0]; // m[s[i]]
-	 	 
-	 wire [W-1:0] IV[0:7];
-	 wire [63:0]  SIGMA[9:0];
-	 wire [3:0]   sigma_sel;
-	 wire [63:0]  sigma_row; // currently selected sigma row
-	 wire [3:0]   sigma_row_elems[15:0]; // currently selected sigma row
-	 
-	 assign SIGMA[0] = { 4'd15 , 4'd14, 4'd13, 4'd12, 4'd11, 4'd10, 4'd9,  4'd8,  4'd7,  4'd6,  4'd5,   4'd4,   4'd3,  4'd2,  4'd1,  4'd0 };
-	 assign SIGMA[1] = { 4'd3  , 4'd5,  4'd7,  4'd11, 4'd2,  4'd0,  4'd12, 4'd1,  4'd6,  4'd13, 4'd15,  4'd9,   4'd8,  4'd4,  4'd10, 4'd14};
-	 assign SIGMA[2] = { 4'd4  , 4'd9,  4'd1,  4'd7,  4'd6,  4'd3,  4'd14, 4'd10, 4'd13, 4'd15, 4'd2,   4'd5,   4'd0,  4'd12, 4'd8,  4'd11};
-	 assign SIGMA[3] = { 4'd8  , 4'd15, 4'd0,  4'd4,  4'd10, 4'd5,  4'd6,  4'd2,  4'd14, 4'd11, 4'd12,  4'd13,  4'd1,  4'd3,  4'd9,  4'd7 };
-	 assign SIGMA[4] = { 4'd13 , 4'd3,  4'd8,  4'd6,  4'd12, 4'd11, 4'd1,  4'd14, 4'd15, 4'd10, 4'd4,   4'd2,   4'd7,  4'd5,  4'd0,  4'd9 };
-	 assign SIGMA[5] = { 4'd9  , 4'd1,  4'd14, 4'd15, 4'd5,  4'd7,  4'd13, 4'd4,  4'd3,  4'd8,  4'd11,  4'd0,   4'd10, 4'd6,  4'd12, 4'd2 };
-	 assign SIGMA[6] = { 4'd11 , 4'd8,  4'd2,  4'd9,  4'd3,  4'd6,  4'd7,  4'd0,  4'd10, 4'd4,  4'd13,  4'd14,  4'd15, 4'd1,  4'd5,  4'd12};
-	 assign SIGMA[7] = { 4'd10 , 4'd2,  4'd6,  4'd8,  4'd4,  4'd15, 4'd0,  4'd5,  4'd9,  4'd3,  4'd1,   4'd12,  4'd14, 4'd7,  4'd11, 4'd13};
-	 assign SIGMA[8] = { 4'd5  , 4'd10, 4'd4,  4'd1,  4'd7,  4'd13, 4'd2,  4'd12, 4'd8,  4'd0,  4'd3,   4'd11,  4'd9,  4'd14, 4'd15, 4'd6 };
-	 assign SIGMA[9] = { 4'd0  , 4'd13, 4'd12, 4'd3,  4'd14, 4'd9,  4'd11, 4'd15, 4'd5,  4'd1,  4'd6,   4'd7,   4'd4,  4'd8,  4'd2,  4'd10};
-						 
-	 assign IV[0] = 64'h6A09E667F3BCC908;
-	 assign IV[1] = 64'hBB67AE8584CAA73B;
-	 assign IV[2] = 64'h3C6EF372FE94F82B;
-	 assign IV[3] = 64'hA54FF53A5F1D36F1;
-	 assign IV[4] = 64'h510E527FADE682D1;
-	 assign IV[5] = 64'h9B05688C2B3E6C1F;
-	 assign IV[6] = 64'h1F83D9ABFB41BD6B;
-	 assign IV[7] = 64'h5BE0CD19137E2179;
-	 
-	 // Initialize local work vector v[0..15]
-	 // v[0..7]  := h[0..7]              // First half from state.
-	 // v[8..15] := IV[0..7]            // Second half from IV.
-	 genvar v_init_i;
-	 generate
+	reg  [3:0] fsm_q;
+	wire [3:0] fsm_next;
+	wire       fsm_en;
+	wire       v_en;
+	wire       final_round;
+	
+	wire [W-1:0] v_init[15:0];
+	wire [W-1:0] v_init_2[15:0];
+	wire [W-1:0] v_next[15:0];
+	wire [W-1:0] v_current[15:0];
+	reg  [W-1:0] v_q[15:0];
+	wire [W-1:0] v_p0[15:0]; // part 0
+	wire [W-1:0] v_p1[15:0]; // part 1
+	wire [W-1:0] v_p2[15:0]; // part 2
+	wire [W-1:0] v_p3[15:0]; // part 3
+	wire [1:0]   unused_v_add_carry_p0[15:0]; // part 0
+	wire [1:0]   unused_v_add_carry_p1[15:0]; // part 1
+	wire [1:0]   unused_v_add_carry_p2[15:0]; // part 2
+	wire [1:0]   unused_v_add_carry_p3[15:0]; // part 3
+	
+	reg  [W-1:0] m_q[15:0]; // stay the same for the entire periode 
+	wire [W-1:0] m_current[15:0];
+	wire [W-1:0] m_prime[15:0]; // m[s[i]]
+		 
+	wire [W-1:0] IV[0:7];
+	wire [63:0]  SIGMA[9:0];
+	wire [3:0]   sigma_sel;
+	wire [63:0]  sigma_row; // currently selected sigma row
+	wire [3:0]   sigma_row_elems[15:0]; // currently selected sigma row
+	
+	assign SIGMA[0] = { 4'd15 , 4'd14, 4'd13, 4'd12, 4'd11, 4'd10, 4'd9,  4'd8,  4'd7,  4'd6,  4'd5,   4'd4,   4'd3,  4'd2,  4'd1,  4'd0 };
+	assign SIGMA[1] = { 4'd3  , 4'd5,  4'd7,  4'd11, 4'd2,  4'd0,  4'd12, 4'd1,  4'd6,  4'd13, 4'd15,  4'd9,   4'd8,  4'd4,  4'd10, 4'd14};
+	assign SIGMA[2] = { 4'd4  , 4'd9,  4'd1,  4'd7,  4'd6,  4'd3,  4'd14, 4'd10, 4'd13, 4'd15, 4'd2,   4'd5,   4'd0,  4'd12, 4'd8,  4'd11};
+	assign SIGMA[3] = { 4'd8  , 4'd15, 4'd0,  4'd4,  4'd10, 4'd5,  4'd6,  4'd2,  4'd14, 4'd11, 4'd12,  4'd13,  4'd1,  4'd3,  4'd9,  4'd7 };
+	assign SIGMA[4] = { 4'd13 , 4'd3,  4'd8,  4'd6,  4'd12, 4'd11, 4'd1,  4'd14, 4'd15, 4'd10, 4'd4,   4'd2,   4'd7,  4'd5,  4'd0,  4'd9 };
+	assign SIGMA[5] = { 4'd9  , 4'd1,  4'd14, 4'd15, 4'd5,  4'd7,  4'd13, 4'd4,  4'd3,  4'd8,  4'd11,  4'd0,   4'd10, 4'd6,  4'd12, 4'd2 };
+	assign SIGMA[6] = { 4'd11 , 4'd8,  4'd2,  4'd9,  4'd3,  4'd6,  4'd7,  4'd0,  4'd10, 4'd4,  4'd13,  4'd14,  4'd15, 4'd1,  4'd5,  4'd12};
+	assign SIGMA[7] = { 4'd10 , 4'd2,  4'd6,  4'd8,  4'd4,  4'd15, 4'd0,  4'd5,  4'd9,  4'd3,  4'd1,   4'd12,  4'd14, 4'd7,  4'd11, 4'd13};
+	assign SIGMA[8] = { 4'd5  , 4'd10, 4'd4,  4'd1,  4'd7,  4'd13, 4'd2,  4'd12, 4'd8,  4'd0,  4'd3,   4'd11,  4'd9,  4'd14, 4'd15, 4'd6 };
+	assign SIGMA[9] = { 4'd0  , 4'd13, 4'd12, 4'd3,  4'd14, 4'd9,  4'd11, 4'd15, 4'd5,  4'd1,  4'd6,   4'd7,   4'd4,  4'd8,  4'd2,  4'd10};
+	       				 
+	assign IV[0] = 64'h6A09E667F3BCC908;
+	assign IV[1] = 64'hBB67AE8584CAA73B;
+	assign IV[2] = 64'h3C6EF372FE94F82B;
+	assign IV[3] = 64'hA54FF53A5F1D36F1;
+	assign IV[4] = 64'h510E527FADE682D1;
+	assign IV[5] = 64'h9B05688C2B3E6C1F;
+	assign IV[6] = 64'h1F83D9ABFB41BD6B;
+	assign IV[7] = 64'h5BE0CD19137E2179;
+	
+	// Initialize local work vector v[0..15]
+	// v[0..7]  := h[0..7]              // First half from state.
+	// v[8..15] := IV[0..7]            // Second half from IV.
+	genvar v_init_i;
+	generate
 		for(v_init_i=0;v_init_i<8;v_init_i=v_init_i+1) begin : loop_v_init
 			 assign v_init[v_init_i]   =  h_i[W*v_init_i+W-1:W*v_init_i];
 			 assign v_init[v_init_i+8] = 	IV[v_init_i];
@@ -132,7 +131,7 @@ module compression
 	endgenerate
 	
 
-   // do 12 rounds
+        // do 12 rounds
 	genvar v_idx;
 	generate
 		for(v_idx = 0; v_idx<16; v_idx=v_idx+1 ) begin : loop_v_idx
@@ -190,6 +189,7 @@ module compression
 	endgenerate
 		
 	// selecting m prime, re-ordered and indexed into by sigma_row_elems
+	// this is the where this get's expensive in hw
 	genvar i;
 	generate
 		for ( i = 0; i < 16; i=i+1 ) begin : loop_m_prime_elem
@@ -212,51 +212,53 @@ module compression
 									;
 		end
 	endgenerate
-//       |   // Cryptographic mixing
-//       |   FOR i = 0 TO r - 1 DO           // Ten or twelve rounds.
-//       |   |
-//       |   |   // Message word selection permutation for this round.
-//       |   |   s[0..15] := SIGMA[i mod 10][0..15]
-//       |   |
-//       |   |   v := G( v, 0, 4,  8, 12, m[s[ 0]], m[s[ 1]] )
-//       |   |   v := G( v, 1, 5,  9, 13, m[s[ 2]], m[s[ 3]] )
-//       |   |   v := G( v, 2, 6, 10, 14, m[s[ 4]], m[s[ 5]] )
-//       |   |   v := G( v, 3, 7, 11, 15, m[s[ 6]], m[s[ 7]] )
-//       |   |
-//       |   |   v := G( v, 0, 5, 10, 15, m[s[ 8]], m[s[ 9]] )
-//       |   |   v := G( v, 1, 6, 11, 12, m[s[10]], m[s[11]] )
-//       |   |   v := G( v, 2, 7,  8, 13, m[s[12]], m[s[13]] )
-//       |   |   v := G( v, 3, 4,  9, 14, m[s[14]], m[s[15]] )
-//       |   |
-//       |   END FOR
+//      |   // Cryptographic mixing
+//      |   FOR i = 0 TO r - 1 DO           // Ten or twelve rounds.
+//      |   |
+//      |   |   // Message word selection permutation for this round.
+//      |   |   s[0..15] := SIGMA[i mod 10][0..15]
+//      |   |
+//      |   |   v := G( v, 0, 4,  8, 12, m[s[ 0]], m[s[ 1]] )
+//      |   |   v := G( v, 1, 5,  9, 13, m[s[ 2]], m[s[ 3]] )
+//      |   |   v := G( v, 2, 6, 10, 14, m[s[ 4]], m[s[ 5]] )
+//      |   |   v := G( v, 3, 7, 11, 15, m[s[ 6]], m[s[ 7]] )
+//      |   |
+//      |   |   v := G( v, 0, 5, 10, 15, m[s[ 8]], m[s[ 9]] )
+//      |   |   v := G( v, 1, 6, 11, 12, m[s[10]], m[s[11]] )
+//      |   |   v := G( v, 2, 7,  8, 13, m[s[12]], m[s[13]] )
+//      |   |   v := G( v, 3, 4,  9, 14, m[s[14]], m[s[15]] )
+//      |   |
+//      |   END FOR
 // 
-// 		FUNCTION G( v[0..15], a, b, c, d, x, y )
-//       |
-//       |   v[a] := (v[a] + v[b] + x) mod 2**w
-//       |   v[d] := (v[d] ^ v[a]) >>> R1
-//       |   v[c] := (v[c] + v[d])     mod 2**w
-//       |   v[b] := (v[b] ^ v[c]) >>> R2
-//       |   v[a] := (v[a] + v[b] + y) mod 2**w
-//       |   v[d] := (v[d] ^ v[a]) >>> R3
-//       |   v[c] := (v[c] + v[d])     mod 2**w
-//       |   v[b] := (v[b] ^ v[c]) >>> R4
-//       |
-//       |   RETURN v[0..15]
-//       |
-//       END FUNCTION.
+//     	FUNCTION G( v[0..15], a, b, c, d, x, y )
+//      |
+//      |   v[a] := (v[a] + v[b] + x) mod 2**w
+//      |   v[d] := (v[d] ^ v[a]) >>> R1
+//      |   v[c] := (v[c] + v[d])     mod 2**w
+//      |   v[b] := (v[b] ^ v[c]) >>> R2
+//      |   v[a] := (v[a] + v[b] + y) mod 2**w
+//      |   v[d] := (v[d] ^ v[a]) >>> R3
+//      |   v[c] := (v[c] + v[d])     mod 2**w
+//      |   v[b] := (v[b] ^ v[c]) >>> R4
+//      |
+//      |   RETURN v[0..15]
+//      |
+//      END FUNCTION.
+
 	genvar p0_idx;
-//       |   |   v := G( v, 0, 4,  8, 12, m[s[ 0]], m[s[ 1]] )
-//       |   |   v := G( v, 1, 5,  9, 13, m[s[ 2]], m[s[ 3]] )
-//       |   |   v := G( v, 2, 6, 10, 14, m[s[ 4]], m[s[ 5]] )
-//       |   |   v := G( v, 3, 7, 11, 15, m[s[ 6]], m[s[ 7]] )
+//      |   |   v := G( v, 0, 4,  8, 12, m[s[ 0]], m[s[ 1]] )
+//      |   |   v := G( v, 1, 5,  9, 13, m[s[ 2]], m[s[ 3]] )
+//      |   |   v := G( v, 2, 6, 10, 14, m[s[ 4]], m[s[ 5]] )
+//      |   |   v := G( v, 3, 7, 11, 15, m[s[ 6]], m[s[ 7]] )
 	generate 
 		for(p0_idx=0; p0_idx<4; p0_idx=p0_idx+1 ) begin : loop_g_v_part0
-			//	p0_a = p0_idx;
-			//	p0_b = p0_idx + 4;
-			//	p0_c = p0_idx + 8;
-			//	p0_d = p0_idx + 12;
-			//	p0_x = p0_idx*2;
-			//	p0_y = p0_idx*2+1;
+			// p0_a = p0_idx;
+			// p0_b = p0_idx + 4;
+			// p0_c = p0_idx + 8;
+			// p0_d = p0_idx + 12;
+			// p0_x = p0_idx*2;
+			// p0_y = p0_idx*2+1;
+			//
 			// Part 0
 			// v[a] := (v[a] + v[b] + x) mod 2**w
 			assign { unused_v_add_carry_p0[p0_idx], v_p0[p0_idx] }= v_current[p0_idx] + v_current[p0_idx+4] + m_prime[p0_idx*2];
@@ -349,11 +351,11 @@ module compression
 		end
 	endgenerate
 	
-//       |   FOR i = 0 TO 7 DO               // XOR the two halves.
-//       |   |   h[i] := h[i] ^ v[i] ^ v[i + 8]
-//       |   END FOR.
-//       |
-//       |   RETURN h[0..7]                  // New state.
+//      |   FOR i = 0 TO 7 DO               // XOR the two halves.
+//      |   |   h[i] := h[i] ^ v[i] ^ v[i + 8]
+//      |   END FOR.
+//      |
+//      |   RETURN h[0..7]                  // New state.
 
 	// calculate output h_o value
 	genvar h_idx;
@@ -363,7 +365,7 @@ module compression
 		end
 	endgenerate
 	
-	// FSM
+	// FSM : count to 12 
 	// 0 1 2 3 4 5 6 7 8 9 10 11 12
 	// v v v v v v v v v v v  v  h
 	//                           fr
@@ -378,7 +380,7 @@ module compression
 	end
 	assign fsm_en   = valid_i | |(fsm_q); 
 	assign fsm_next = final_round ? 4'b0000 : fsm_q + 4'b0001;
-	// output is valid
+	// output is enabled ( valid )
 	assign v_en = fsm_en & ~final_round;
 	assign final_round = ( fsm_q == R );
 	assign valid_o     = final_round;

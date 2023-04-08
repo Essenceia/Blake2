@@ -3,7 +3,6 @@ USE ieee.std_logic_1164.ALL;
  
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
---USE ieee.numeric_std.ALL;
  
 ENTITY compression_test IS
 END compression_test;
@@ -14,30 +13,30 @@ ARCHITECTURE behavior OF compression_test IS
  
     COMPONENT compression
     PORT(
-         clk : IN  std_logic;
+         clk    : IN  std_logic;
          nreset : IN  std_logic;
          valid_i : IN  std_logic;
-         h_i : IN  std_logic_vector(511 downto 0);
-         m_i : IN  std_logic_vector(1023 downto 0);
-         t_i : IN  std_logic_vector(127 downto 0);
-         f_i : IN  std_logic;
-         h_o : OUT  std_logic_vector(511 downto 0);
+         h_i     : IN  std_logic_vector(511 downto 0);
+         m_i     : IN  std_logic_vector(1023 downto 0);
+         t_i     : IN  std_logic_vector(127 downto 0);
+         f_i     : IN  std_logic;
+         h_o     : OUT  std_logic_vector(511 downto 0);
          valid_o : OUT  std_logic
         );
     END COMPONENT;
     
 
    --Inputs
-   signal clk : std_logic := '0';
+   signal clk    : std_logic := '0';
    signal nreset : std_logic := '0';
    signal valid_i : std_logic := '0';
-   signal h_i : std_logic_vector(511 downto 0) := (others => '0');
-   signal m_i : std_logic_vector(1023 downto 0) := (others => '0');
-   signal t_i : std_logic_vector(127 downto 0) := (others => '0');
-   signal f_i : std_logic := '0';
+   signal h_i     : std_logic_vector(511 downto 0) := (others => '0');
+   signal m_i     : std_logic_vector(1023 downto 0) := (others => '0');
+   signal t_i     : std_logic_vector(127 downto 0) := (others => '0');
+   signal f_i     : std_logic := '0';
 
  	--Outputs
-   signal h_o : std_logic_vector(511 downto 0);
+   signal h_o     : std_logic_vector(511 downto 0);
    signal valid_o : std_logic;
 
    -- Clock period definitions
@@ -45,16 +44,16 @@ ARCHITECTURE behavior OF compression_test IS
  
 BEGIN
  
-	-- Instantiate the Unit Under Test (UUT)
+   -- Instantiate the Unit Under Test (UUT)
    uut: compression PORT MAP (
-          clk => clk,
+          clk    => clk,
           nreset => nreset,
           valid_i => valid_i,
-          h_i => h_i,
-          m_i => m_i,
-          t_i => t_i,
-          f_i => f_i,
-          h_o => h_o,
+          h_i     => h_i,
+          m_i     => m_i,
+          t_i     => t_i,
+          f_i     => f_i,
+          h_o     => h_o,
           valid_o => valid_o
         );
 

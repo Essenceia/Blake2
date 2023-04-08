@@ -3,7 +3,6 @@ USE ieee.std_logic_1164.ALL;
  
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
---USE ieee.numeric_std.ALL;
  
 ENTITY blake2_test IS
 END blake2_test;
@@ -14,36 +13,36 @@ ARCHITECTURE behavior OF blake2_test IS
  
     COMPONENT blake2
     PORT(
-         clk : IN  std_logic;
-         nreset : IN  std_logic;
+         clk     : IN  std_logic;
+         nreset  : IN  std_logic;
          valid_i : IN  std_logic;
-         data_i : IN  std_logic_vector(1023 downto 0);
+         data_i  : IN  std_logic_vector(1023 downto 0);
          hash_v_o : OUT  std_logic;
-         hash_o : OUT  std_logic_vector(511 downto 0)
+         hash_o   : OUT  std_logic_vector(511 downto 0)
         );
     END COMPONENT;
     
 
    --Inputs
-   signal clk : std_logic := '0';
-   signal nreset : std_logic := '0';
+   signal clk     : std_logic := '0';
+   signal nreset  : std_logic := '0';
    signal valid_i : std_logic := '0';
-   signal data_i : std_logic_vector(1023 downto 0) := (others => '0');
+   signal data_i  : std_logic_vector(1023 downto 0) := (others => '0');
 
- 	--Outputs
+   --Outputs
    signal hash_v_o : std_logic;
-   signal hash_o : std_logic_vector(511 downto 0);
+   signal hash_o   : std_logic_vector(511 downto 0);
 
    -- Clock period definitions
    constant clk_period : time := 10 ns;
  
 BEGIN
  
-	-- Instantiate the Unit Under Test (UUT)
+   -- Instantiate the Unit Under Test (UUT)
    uut: blake2 
 	PORT MAP (
-          clk => clk,
-          nreset => nreset,
+          clk      => clk,
+          nreset   => nreset,
           valid_i  => valid_i,
           data_i   => data_i,
           hash_v_o => hash_v_o,
