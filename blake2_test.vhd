@@ -1,6 +1,7 @@
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
- 
+USE ieee.std_logic_misc.ALL;
+
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
  
@@ -23,18 +24,22 @@ ARCHITECTURE behavior OF blake2_test IS
     END COMPONENT;
     
 
-   --Inputs
+   -- Inputs
    signal clk     : std_logic := '0';
    signal nreset  : std_logic := '0';
    signal valid_i : std_logic := '0';
    signal data_i  : std_logic_vector(1023 downto 0) := (others => '0');
 
-   --Outputs
+   -- Outputs
    signal hash_v_o : std_logic;
    signal hash_o   : std_logic_vector(511 downto 0);
 
    -- Clock period definitions
    constant clk_period : time := 10 ns;
+
+   -- Testbench variables
+   signal tb_hash_o_ored : std_logic;
+   signal tb_data_i_ored : std_logic;
  
 BEGIN
  
@@ -62,7 +67,6 @@ BEGIN
    -- Stimulus process
    stim_proc: process
    begin		
-      -- hold reset state for 100 ns.
       nreset <= '0';
       wait for 16 ns;
 		nreset  <= '1';
@@ -75,9 +79,35 @@ BEGIN
 
       wait for clk_period*10;
 
-      -- insert stimulus here 
-
       wait;
+   end process;
+
+   -- test bench specific
+   tb_hash_o_ored <= or_reduce(hash_o);
+   tb_data_i_ored <= or_reduce(data_i);
+
+   asset_proc : process
+   begin
+   	wait for clk_period;
+	-- TestBench verification 
+	
+	-- reset X check
+	assert not(nreset='X') report "nreset is X" severity failure;
+	-- input valid and data X check
+	assert ( not( (valid_i = 'X') and (nreset='1') )) 
+	report "input valid is X" severity failure;
+	assert ( not((valid_i = '1')and (tb_data_i_ored='X') and (nreset='1') ))
+	report "input data contrains X on valid" severity failure;
+
+	-- Design verification
+
+	-- output valid signal should never be X, with the expection of reset
+   	assert( not((hash_v_o = 'X' )and (nreset = '1')) ) 
+	report "output valid is X" severity failure;
+	-- output data should never contrain and X's when output valid is 1
+	-- with the expection of reset
+	assert ( not((hash_v_o = '1')and (tb_hash_o_ored='X') and (nreset='1') ))
+	report "output data contrains X on valid" severity failure;
    end process;
 
 END;
