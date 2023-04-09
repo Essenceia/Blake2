@@ -18,8 +18,6 @@ ARCHITECTURE behavior OF compression_test IS
          valid_i : IN  std_logic;
          h_i     : IN  std_logic_vector(511 downto 0);
          m_i     : IN  std_logic_vector(1023 downto 0);
-         t_i     : IN  std_logic_vector(127 downto 0);
-         f_i     : IN  std_logic;
          h_o     : OUT  std_logic_vector(511 downto 0);
          valid_o : OUT  std_logic
         );
@@ -32,8 +30,6 @@ ARCHITECTURE behavior OF compression_test IS
    signal valid_i : std_logic := '0';
    signal h_i     : std_logic_vector(511 downto 0) := (others => '0');
    signal m_i     : std_logic_vector(1023 downto 0) := (others => '0');
-   signal t_i     : std_logic_vector(127 downto 0) := (others => '0');
-   signal f_i     : std_logic := '0';
 
  	--Outputs
    signal h_o     : std_logic_vector(511 downto 0);
@@ -51,8 +47,6 @@ BEGIN
           valid_i => valid_i,
           h_i     => h_i,
           m_i     => m_i,
-          t_i     => t_i,
-          f_i     => f_i,
           h_o     => h_o,
           valid_o => valid_o
         );

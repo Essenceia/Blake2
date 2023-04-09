@@ -11,7 +11,7 @@ ARCHITECTURE behavior OF blake2_test IS
  
     -- Component Declaration for the Unit Under Test (UUT)
  
-    COMPONENT blake2
+    COMPONENT blake2b_hash512
     PORT(
          clk     : IN  std_logic;
          nreset  : IN  std_logic;
@@ -39,7 +39,7 @@ ARCHITECTURE behavior OF blake2_test IS
 BEGIN
  
    -- Instantiate the Unit Under Test (UUT)
-   uut: blake2 
+   uut: blake2b_hash512
 	PORT MAP (
           clk      => clk,
           nreset   => nreset,
