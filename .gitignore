@@ -4,3 +4,8 @@
 !*.vhd
 !.gitignore
 !rfc7693.txt
+!*.c
+!*.sh
+!*.h
+!makefile
+!test_vector
