@@ -1,9 +1,9 @@
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.std_logic_misc.ALL;
+use std.textio.all;
+use ieee.std_logic_textio.all;
 
--- Uncomment the following library declaration if using
--- arithmetic functions with Signed or Unsigned values
  
 ENTITY blake2_test IS
 END blake2_test;
@@ -38,6 +38,11 @@ ARCHITECTURE behavior OF blake2_test IS
    constant clk_period : time := 10 ns;
 
    -- Testbench variables
+   -- input test vector for data_i
+   file   tb_data_i_file   : text;
+   signal tb_data_i_tv     : std_logic_vector(1023 downto 0);
+   -- test vector for hash_o
+   file   tb_file_hash   : text;
    signal tb_hash_o_ored : std_logic;
    signal tb_data_i_ored : std_logic;
  
@@ -109,5 +114,26 @@ BEGIN
 	assert ( not((hash_v_o = '1')and (tb_hash_o_ored='X') and (nreset='1') ))
 	report "output data contrains X on valid" severity failure;
    end process;
+
+   -- test vector checking : same output as blake2's c implementaion
+   tv_proc : process
+   	variable tb_data_i_line : line;
+   	variable tb_data_i_line_vec : std_logic_vector(1023 downto 0);
+
+	begin
+	-- file location is relative
+   	file_open( tb_data_i_file, "test_vector/data_i.txt", read_mode);
+	
+	while not endfile( tb_data_i_file ) loop
+		readline( tb_data_i_file, tb_data_i_line);
+		read(tb_data_i_line, tb_data_i_line_vec);
+	
+		tb_data_i_tv <= tb_data_i_line_vec;	
+		wait for clk_period;
+	end loop;
+	-- close files
+	file_close( tb_data_i_file);
+	wait;
+  end process;	
 
 END;
