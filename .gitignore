@@ -9,5 +9,5 @@
 !*.h
 !makefile
 !test_vector
-!data_i.txt
-!hash_o.txt
+!*_data_i.txt
+!*_hash_o.txt

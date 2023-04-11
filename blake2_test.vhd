@@ -70,22 +70,22 @@ BEGIN
  
 
    -- Stimulus process
-   stim_proc: process
-   begin		
-      nreset <= '0';
-      wait for 16 ns;
-		nreset  <= '1';
-		valid_i <= '1';
-		data_i( 23 downto 0 ) <= x"636261";
-		
-		wait for clk_period;
-		valid_i <= '0';
-		data_i <=  (others => 'X');
+  --  stim_proc: process
+  --  begin		
+  --     nreset <= '0';
+  --     wait for 16 ns;
+  --       	nreset  <= '1';
+  --       	valid_i <= '1';
+  --       	data_i( 23 downto 0 ) <= x"636261";
+  --       	
+  --       	wait for clk_period;
+  --       	valid_i <= '0';
+  --       	data_i <=  (others => 'X');
 
-      wait for clk_period*10;
+  --     wait for clk_period*10;
 
-      wait;
-   end process;
+  --     wait;
+  --  end process;
 
    -- test bench specific
    tb_hash_o_ored <= or_reduce(hash_o);
@@ -122,13 +122,30 @@ BEGIN
 
 	begin
 	-- file location is relative
-   	file_open( tb_data_i_file, "test_vector/data_i.txt", read_mode);
-	
+   	file_open( tb_data_i_file, "test_vector/b_data_i.txt", read_mode);
+	nreset <= '0';
+	wait for 16 ns;
+		nreset  <= '1';
+
 	while not endfile( tb_data_i_file ) loop
 		readline( tb_data_i_file, tb_data_i_line);
 		read(tb_data_i_line, tb_data_i_line_vec);
+
+		for i in 0 to 15 loop
+			-- used for testing purposes
+			tb_data_i_tv(64*(15-i+1)-1 downto 64*(15-i)) <= tb_data_i_line_vec(64*(i+1)-1 downto 64*i);
+			-- write to input
+			data_i(64*(15-i+1)-1 downto 64*(15-i)) <= tb_data_i_line_vec(64*(i+1)-1 downto 64*i);
+		end loop;
+		valid_i <= '1';		
 	
-		tb_data_i_tv <= tb_data_i_line_vec;	
+		wait for clk_period;
+		
+		valid_i <= '0';
+		data_i <= ( others => 'X' );
+		while not ( hash_v_o = '1' ) loop
+			wait for clk_period;
+		end loop;
 		wait for clk_period;
 	end loop;
 	-- close files

@@ -4,6 +4,7 @@
 
 #include "blake2b.h"
 #include "blake2s.h"
+#include "file.h"
 
 // Deterministic sequences (Fibonacci generator).
 
@@ -72,7 +73,36 @@ int blake2b_selftest()
 }
 
 int main(){
-	int res;
+	int i, res;
+	tvf_s* tv;
+	uint8_t d[128], out[64];
+	size_t ol, l = 16;
+
 	res = blake2b_selftest();
+	// open files
+	tv = setup_files();
+	// tmp
+	# ifndef DEBUG
+	d[0] = 0x61;
+	d[1] = 0x62;
+	d[2] = 0x63;
+	for(i=3;i<128;i++){
+		d[i] = 0;
+	
+	}
+	# else
+	for(i=0;i<128;i++){
+		d[i] = i;
+	}
+	# endif
+	write_data64(tv->f[0], d, 128);
+	blake2b(out, 64, NULL, 0, d, 128);		
+	write_data8(tv->f[1], out, 64);
+	// B testing
+	
+	// S testing
+	
+	// close files
+	res |= close_files(tv);
 	return res;
 }
