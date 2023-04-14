@@ -5,7 +5,7 @@
 #include "rand.h"
 
 // number of test vectors to be generated
-#define TEST_NUM 10
+#define TEST_NUM 1
 // input vector size in bytes
 #define IN_SIZE  128
 // output vector size in bytes
@@ -24,23 +24,30 @@ int main(){
 	
 	for(t=0; t<TEST_NUM;t++){
 		// generate new test vector
-		gen_rand(&d,IN_SIZE);
 		# ifdef DEBUG
-		printf("\"inlen\":%d,\"in\":\"", IN_SIZE);
-		for(i=0;i<IN_SIZE;i++){
+		// manually set test vecot
+		for(i=0; i<IN_SIZE;i++){
+			d[i] = 0;
+		}	
+		#else	
+		gen_rand(&d,IN_SIZE);
+		#endif
+		# ifdef DEBUG
+		printf("\"inlen\":%d,\"in[%d:0]\":\"", IN_SIZE, IN_SIZE*8-1);
+		for(i=IN_SIZE;i>=0;i--){
 			printf("%02X",d[i]);
 		}
 		# endif
 		
-		write_data64(tv->f[0], d, IN_SIZE);
+		write_data8(tv->f[0], d, IN_SIZE);
 		
 		// uint8_t *out, const void *in, const void *key, size_t outlen, size_t inlen, size_t keylen );	
 		blake2b(o, d, NULL, OUT_SIZE, IN_SIZE, 0 );		
 		
 		write_data8(tv->f[1], o, OUT_SIZE);
 		#ifdef DEBUG
-		printf("\",\"outlen\":%d,\"out\":\"", OUT_SIZE);
-		for( i =0; i<OUT_SIZE;i++){
+		printf("\",\"outlen\":%d,\"out[%d:0]\":\"", OUT_SIZE, OUT_SIZE*8-1);
+		for( i =OUT_SIZE; i>=0 ;i-- ){
 			printf("%02X",o[i]);
 		};
 		printf("\"\n");

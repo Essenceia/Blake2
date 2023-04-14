@@ -140,18 +140,17 @@ BEGIN
 		readline( tb_hash_o_file, tb_hash_o_line);
 		read(tb_data_i_line, tb_data_i_line_vec);
 		read(tb_hash_o_line, tb_hash_o_line_vec);
-		for i in 0 to 15 loop
-			-- used for testing purposes
-			tb_data_i_tv(64*(15-i+1)-1 downto 64*(15-i)) <= tb_data_i_line_vec(64*(i+1)-1 downto 64*i);
-			-- write to input
-			data_i(64*(15-i+1)-1 downto 64*(15-i)) <= tb_data_i_line_vec(64*(i+1)-1 downto 64*i);
-		end loop;
-		for i in 0 to 7 loop
-			-- used for testing purposes
-			tb_hash_o_tv(64*(7-i+1)-1 downto 64*(7-i)) <= tb_hash_o_line_vec(64*(i+1)-1 downto 64*i);
-			-- write to input
-			hash_o(64*(7-i+1)-1 downto 64*(7-i)) <= tb_hash_o_line_vec(64*(i+1)-1 downto 64*i);
-		end loop;
+			
+		-- used for testing purposes
+		tb_data_i_tv <= tb_data_i_line_vec;
+		-- write to input
+		-- data_i <= tb_data_i_line_vec;
+		-- debug : TODO remove 
+		data_i <= ( others => '0' );	
+	
+		-- used for testing purposes
+		tb_hash_o_tv <= tb_hash_o_line_vec;
+		
 		valid_i <= '1';		
 	
 		wait for clk_period;
