@@ -42,7 +42,8 @@ ARCHITECTURE behavior OF blake2_test IS
    file   tb_data_i_file   : text;
    signal tb_data_i_tv     : std_logic_vector(1023 downto 0);
    -- test vector for hash_o
-   file   tb_file_hash   : text;
+   file   tb_hash_o_file   : text;
+   signal tb_hash_o_tv     : std_logic_vector(511 downto 0);
    signal tb_hash_o_ored : std_logic;
    signal tb_data_i_ored : std_logic;
  
@@ -117,25 +118,39 @@ BEGIN
 
    -- test vector checking : same output as blake2's c implementaion
    tv_proc : process
+	variable tb_db_loop : std_logic;
    	variable tb_data_i_line : line;
+   	variable tb_hash_o_line : line;
    	variable tb_data_i_line_vec : std_logic_vector(1023 downto 0);
+   	variable tb_hash_o_line_vec : std_logic_vector(511 downto 0);
 
 	begin
 	-- file location is relative
-   	file_open( tb_data_i_file, "test_vector/b_data_i.txt", read_mode);
+   	-- open files containing test vectors, different files for input/output
+	file_open( tb_data_i_file, "test_vector/b_data_i.txt", read_mode);
+   	file_open( tb_hash_o_file, "test_vector/b_hash_o.txt", read_mode);
 	nreset <= '0';
 	wait for 16 ns;
 		nreset  <= '1';
-
+	-- tb_data_i and tb_hash_o files have the same number of lines
 	while not endfile( tb_data_i_file ) loop
+		tb_db_loop := '0';
+		-- real file content line by line into a vector
 		readline( tb_data_i_file, tb_data_i_line);
+		readline( tb_hash_o_file, tb_hash_o_line);
 		read(tb_data_i_line, tb_data_i_line_vec);
-
+		read(tb_hash_o_line, tb_hash_o_line_vec);
 		for i in 0 to 15 loop
 			-- used for testing purposes
 			tb_data_i_tv(64*(15-i+1)-1 downto 64*(15-i)) <= tb_data_i_line_vec(64*(i+1)-1 downto 64*i);
 			-- write to input
 			data_i(64*(15-i+1)-1 downto 64*(15-i)) <= tb_data_i_line_vec(64*(i+1)-1 downto 64*i);
+		end loop;
+		for i in 0 to 7 loop
+			-- used for testing purposes
+			tb_hash_o_tv(64*(7-i+1)-1 downto 64*(7-i)) <= tb_hash_o_line_vec(64*(i+1)-1 downto 64*i);
+			-- write to input
+			hash_o(64*(7-i+1)-1 downto 64*(7-i)) <= tb_hash_o_line_vec(64*(i+1)-1 downto 64*i);
 		end loop;
 		valid_i <= '1';		
 	
@@ -143,9 +158,13 @@ BEGIN
 		
 		valid_i <= '0';
 		data_i <= ( others => 'X' );
+		-- wait for module to produce valid output
 		while not ( hash_v_o = '1' ) loop
+			tb_db_loop := '1';
 			wait for clk_period;
 		end loop;
+		-- test if module output matches test vector expected output
+		
 		wait for clk_period;
 	end loop;
 	-- close files
