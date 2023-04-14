@@ -7,7 +7,7 @@
 // number of test vectors to be generated
 #define TEST_NUM 1
 // input vector size in bytes
-#define IN_SIZE  3
+#define IN_SIZE  128
 // output vector size in bytes
 #define OUT_SIZE 64
 
@@ -26,10 +26,7 @@ int main(){
 		// generate new test vector
 		# ifdef DEBUG
 		// manually set test vecot
-		d[0] = 'a';
-		d[1] = 'b';
-		d[2] = 'c';
-		for(i=3; i<IN_SIZE;i++){
+		for(i=0; i<IN_SIZE;i++){
 			d[i] = 0;
 		}	
 		#else	

@@ -140,7 +140,7 @@ module compression #(
 			assign v_next[v_idx] = v_p3[v_idx];
 			always @(posedge clk) 
 			begin
-				if ( v_en ) 
+				if ( v_en )
 					v_q[v_idx] <= v_next[v_idx];
 			end
 		end
@@ -155,18 +155,19 @@ module compression #(
 	assign sigma_sel = fsm_ge10 ? { 3'b0 , fsm_q[0] }
 						  : fsm_eq12 ? 4'b0010 : fsm_q;
 
-	// select current sigma row 
-	assign sigma_row =  {64{ sigma_sel == 4'd0 }} & SIGMA[0]
-							| {64{ sigma_sel == 4'd1 }} & SIGMA[1]
-							| {64{ sigma_sel == 4'd2 }} & SIGMA[2]
-							| {64{ sigma_sel == 4'd3 }} & SIGMA[3]
-							| {64{ sigma_sel == 4'd4 }} & SIGMA[4]
-							| {64{ sigma_sel == 4'd5 }} & SIGMA[5]
-							| {64{ sigma_sel == 4'd6 }} & SIGMA[6]
-							| {64{ sigma_sel == 4'd7 }} & SIGMA[7]
-							| {64{ sigma_sel == 4'd8 }} & SIGMA[8]
-							| {64{ sigma_sel == 4'd9 }} & SIGMA[9]
-							;
+	// select current sigma row
+	// from rfc : "For BLAKE2b, the two extra permutations for rounds 
+	// 10 and 11 are SIGMA[10..11] = SIGMA[0..1]" 
+	assign sigma_row  = {64{ sigma_sel == 4'd0 }} & SIGMA[0]
+			  | {64{ sigma_sel == 4'd1 }} & SIGMA[1]
+			  | {64{ sigma_sel == 4'd2 }} & SIGMA[2]
+			  | {64{ sigma_sel == 4'd3 }} & SIGMA[3]
+			  | {64{ sigma_sel == 4'd4 }} & SIGMA[4]
+			  | {64{ sigma_sel == 4'd5 }} & SIGMA[5]
+			  | {64{ sigma_sel == 4'd6 }} & SIGMA[6]
+			  | {64{ sigma_sel == 4'd7 }} & SIGMA[7]
+			  | {64{ sigma_sel == 4'd8 }} & SIGMA[8]
+			  | {64{ sigma_sel == 4'd9 }} & SIGMA[9];
 	genvar j;
 	generate
 		for( j = 0; j < 16; j=j+1 ) begin : loop_sigma_elem
@@ -190,26 +191,28 @@ module compression #(
 		
 	// selecting m prime, re-ordered and indexed into by sigma_row_elems
 	// this is the where this get's expensive in hw
+	//
+	// m_prime[i] = m[s[i]]
 	genvar i;
 	generate
 		for ( i = 0; i < 16; i=i+1 ) begin : loop_m_prime_elem
 			assign m_prime[i] = {64{ sigma_row_elems[i] == 4'd0  }} & m_current[0]
-									| {64{ sigma_row_elems[i] == 4'd1  }} & m_current[1]
-									| {64{ sigma_row_elems[i] == 4'd2  }} & m_current[2]
-									| {64{ sigma_row_elems[i] == 4'd3  }} & m_current[3]
-									| {64{ sigma_row_elems[i] == 4'd4  }} & m_current[4]
-									| {64{ sigma_row_elems[i] == 4'd5  }} & m_current[5]
-									| {64{ sigma_row_elems[i] == 4'd6  }} & m_current[6]
-									| {64{ sigma_row_elems[i] == 4'd7  }} & m_current[7]
-									| {64{ sigma_row_elems[i] == 4'd8  }} & m_current[8]
-									| {64{ sigma_row_elems[i] == 4'd9  }} & m_current[9]
-									| {64{ sigma_row_elems[i] == 4'd10 }} & m_current[10]
-									| {64{ sigma_row_elems[i] == 4'd11 }} & m_current[11]
-									| {64{ sigma_row_elems[i] == 4'd12 }} & m_current[12]
-									| {64{ sigma_row_elems[i] == 4'd13 }} & m_current[13]
-									| {64{ sigma_row_elems[i] == 4'd14 }} & m_current[14]
-									| {64{ sigma_row_elems[i] == 4'd15 }} & m_current[15]
-									;
+					  | {64{ sigma_row_elems[i] == 4'd1  }} & m_current[1]
+					  | {64{ sigma_row_elems[i] == 4'd2  }} & m_current[2]
+					  | {64{ sigma_row_elems[i] == 4'd3  }} & m_current[3]
+					  | {64{ sigma_row_elems[i] == 4'd4  }} & m_current[4]
+					  | {64{ sigma_row_elems[i] == 4'd5  }} & m_current[5]
+					  | {64{ sigma_row_elems[i] == 4'd6  }} & m_current[6]
+					  | {64{ sigma_row_elems[i] == 4'd7  }} & m_current[7]
+					  | {64{ sigma_row_elems[i] == 4'd8  }} & m_current[8]
+					  | {64{ sigma_row_elems[i] == 4'd9  }} & m_current[9]
+					  | {64{ sigma_row_elems[i] == 4'd10 }} & m_current[10]
+					  | {64{ sigma_row_elems[i] == 4'd11 }} & m_current[11]
+					  | {64{ sigma_row_elems[i] == 4'd12 }} & m_current[12]
+					  | {64{ sigma_row_elems[i] == 4'd13 }} & m_current[13]
+					  | {64{ sigma_row_elems[i] == 4'd14 }} & m_current[14]
+					  | {64{ sigma_row_elems[i] == 4'd15 }} & m_current[15]
+					  ;
 		end
 	endgenerate
 //      |   // Cryptographic mixing
@@ -246,19 +249,22 @@ module compression #(
 //      END FUNCTION.
 
 	genvar p0_idx;
-//      |   |   v := G( v, 0, 4,  8, 12, m[s[ 0]], m[s[ 1]] )
-//      |   |   v := G( v, 1, 5,  9, 13, m[s[ 2]], m[s[ 3]] )
-//      |   |   v := G( v, 2, 6, 10, 14, m[s[ 4]], m[s[ 5]] )
-//      |   |   v := G( v, 3, 7, 11, 15, m[s[ 6]], m[s[ 7]] )
+// There is a constant gap between the values of a, b, c and d : 
+// p0_a = p0_idx;
+// p0_b = p0_idx + 4;
+// p0_c = p0_idx + 8;
+// p0_d = p0_idx + 12;
+// p0_x = p0_idx*2;
+// p0_y = p0_idx*2+1;
+//
+//                   G( v, a, b,  c,  d,    x,     y)         p0_idx
+//      |   |   v := G( v, 0, 4,  8, 12, m[s[ 0]], m[s[ 1]] ) 0
+//      |   |   v := G( v, 1, 5,  9, 13, m[s[ 2]], m[s[ 3]] ) 1
+//      |   |   v := G( v, 2, 6, 10, 14, m[s[ 4]], m[s[ 5]] ) 2
+//      |   |   v := G( v, 3, 7, 11, 15, m[s[ 6]], m[s[ 7]] ) 3
 	generate 
 		for(p0_idx=0; p0_idx<4; p0_idx=p0_idx+1 ) begin : loop_g_v_part0
-			// p0_a = p0_idx;
-			// p0_b = p0_idx + 4;
-			// p0_c = p0_idx + 8;
-			// p0_d = p0_idx + 12;
-			// p0_x = p0_idx*2;
-			// p0_y = p0_idx*2+1;
-			//
+
 			// Part 0
 			// v[a] := (v[a] + v[b] + x) mod 2**w
 			assign { unused_v_add_carry_p0[p0_idx], v_p0[p0_idx] }= v_current[p0_idx] + v_current[p0_idx+4] + m_prime[p0_idx*2];
