@@ -62,26 +62,26 @@ int close_files(tvf_s* tv){
 };
 
 int write_data64(FILE *f, uint8_t *d, size_t l){
-	int i;
+	int j;
+	size_t i, idx;
 	size_t nl = l / 8;
-	uint64_t nd[nl], tmp[l];
-	// move data from 8b into 64b
-	for(i=0;i<l;i++){
-		tmp[i] = (((uint64_t) 0) | d[i]);
-	}
 	for(i=0;i<nl;i++){
-		nd[i] = tmp[i*8] | (tmp[i*8+1] << 8) | (tmp[i*8+2] << 2*8 )
-		     | (tmp[i*8+3] << 3*8 ) | (tmp[i*8+4] << 4*8 )
-		     | (tmp[i*8+5] << 5*8 ) | (tmp[i*8+6] << 6*8 )
-		     | (tmp[i*8+7] << 7*8 );
-	}
-	for(i=0;i<nl;i++){
-		fprintf(f,
-			PRINTF_BINARY_PATTERN_INT64,
-			PRINTF_BYTE_TO_BINARY_INT64(nd[i]));
 		#ifdef DEBUG
-		printf(	"%016X ",nd[i]);
-
+		if( i % 3 == 0)printf("\n");
+		#endif
+		for(j=7;j>=0;j--){
+			idx = i*8+j;
+			fprintf(f,
+				PRINTF_BINARY_PATTERN_INT8,
+				PRINTF_BYTE_TO_BINARY_INT8(d[idx]));
+	
+			#ifdef DEBUG
+			printf("i %ld, j %d\n", i, j);
+			printf("%02X",d[idx]);
+			#endif
+		}
+		#ifdef DEBUG
+		printf(" ");
 		#endif
 	}
 	# ifdef DEBUG
@@ -89,16 +89,30 @@ int write_data64(FILE *f, uint8_t *d, size_t l){
 	#endif
 	return errno;
 };
-
+# ifdef DEBUG
+void print_data64(uint8_t *d, size_t l){
+	size_t i, j,idx;
+	size_t nl = l / 8;
+	for(i=0;i<nl;i++){
+		if( i % 3 == 0)printf("\n");
+		for(j=7;j>=0;j--){
+			idx = i*8+j;
+			printf("%02X",d[idx]);
+		}
+		printf(" ");
+	}
+	printf("\n");
+};
+#endif
 int write_data8(FILE *f, uint8_t *d, size_t l){
-	int i;
+	size_t i;
 	for(i=0;i<l;i++){
 		fprintf(f,
 			PRINTF_BINARY_PATTERN_INT8,
 			PRINTF_BYTE_TO_BINARY_INT8(d[i]));
 		#ifdef DEBUG
+		if ( i % 16 == 0 )printf("\n");
 		printf(	"%02X ", d[i]);
-
 		#endif
 	}
 	# ifdef DEBUG
