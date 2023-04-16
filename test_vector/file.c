@@ -86,6 +86,8 @@ int write_data64(FILE *f, uint8_t *d, size_t l){
 	# ifdef DEBUG
 	printf("\n");
 	#endif
+	// add newline if we have written data
+	if(l!=0)fprintf(f,"\n");	
 	return errno;
 };
 
@@ -102,5 +104,7 @@ int write_data8(FILE *f, uint8_t *d, size_t l){
 	# ifdef DEBUG
 	printf("\n");
 	#endif
+	// add newline if we have written data
+	if(l!=0)fprintf(f,"\n");	
 	return errno;
 };
