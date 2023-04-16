@@ -46,7 +46,6 @@ ARCHITECTURE behavior OF blake2_test IS
    signal tb_hash_o_tv     : std_logic_vector(511 downto 0);
    signal tb_hash_o_ored : std_logic;
    signal tb_data_i_ored : std_logic;
- 
 BEGIN
  
    -- Instantiate the Unit Under Test (UUT)
@@ -118,7 +117,6 @@ BEGIN
 
    -- test vector checking : same output as blake2's c implementaion
    tv_proc : process
-	variable tb_db_loop : std_logic;
    	variable tb_data_i_line : line;
    	variable tb_hash_o_line : line;
    	variable tb_data_i_line_vec : std_logic_vector(1023 downto 0);
@@ -134,7 +132,6 @@ BEGIN
 		nreset  <= '1';
 	-- tb_data_i and tb_hash_o files have the same number of lines
 	while not endfile( tb_data_i_file ) loop
-		tb_db_loop := '0';
 		-- real file content line by line into a vector
 		readline( tb_data_i_file, tb_data_i_line);
 		readline( tb_hash_o_file, tb_hash_o_line);
@@ -144,9 +141,7 @@ BEGIN
 		-- used for testing purposes
 		tb_data_i_tv <= tb_data_i_line_vec;
 		-- write to input
-		-- data_i <= tb_data_i_line_vec;
-		-- debug : TODO remove 
-		data_i <= ( others => '0' );	
+		data_i <= tb_data_i_line_vec;
 	
 		-- used for testing purposes
 		tb_hash_o_tv <= tb_hash_o_line_vec;
@@ -159,10 +154,11 @@ BEGIN
 		data_i <= ( others => 'X' );
 		-- wait for module to produce valid output
 		while not ( hash_v_o = '1' ) loop
-			tb_db_loop := '1';
 			wait for clk_period;
 		end loop;
 		-- test if module output matches test vector expected output
+		assert( (hash_v_o = '1') and ( hash_o = tb_hash_o_line_vec) ) 
+		report "Hash output does not match test vector" severity failure;
 		
 		wait for clk_period;
 	end loop;
