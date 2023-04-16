@@ -1,9 +1,10 @@
 # Blake2 RTL implementation
 
-Implementation of the Blake2 cryptographic hash function( RFC7693 ) in 
+Partial implementation of the Blake2 cryptographic hash function( RFC7693 ) in 
 synthesizable RTL.
 This code was written in a configurable manner to support both BLAKE2
 b and s variants.  
+Does not support secret keys.
 
 :warning: This code was not optimized for power, performance or area.
  
