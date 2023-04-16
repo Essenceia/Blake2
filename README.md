@@ -4,7 +4,7 @@ Partial implementation of the Blake2 cryptographic hash function (RFC7693) in
 synthesizable RTL.
 
 This code was written in a configurable manner to support both BLAKE2
-b and s variants, but I**only the b variant has been thougrougly tested thus far**.
+b and s variants, but **only the b variant has been thougrougly tested thus far**.
 
 This implementation does not currently support secret keys.
 
