@@ -33,7 +33,7 @@ endmodule
 
 module compression #(
 	parameter W  = 64, 
-	parameter LL_b = { {(W*2)-9{1'b0}}, 9'b100000000},
+	parameter LL_b = { {(W*2)-8{1'b0}}, 8'b10000000},
 	parameter F_b = 1'b1, // final block flag
 	parameter R1 = 32, // rotation bits, used in G
 	parameter R2 = 24,
@@ -60,6 +60,8 @@ module compression #(
 	wire       v_en;
 	wire       final_round;
 	
+	wire [W-1:0] db_h[7:0];
+
 	wire [W-1:0] v_init[15:0];
 	wire [W-1:0] v_init_2[15:0];
 	wire [W-1:0] v_next[15:0];
@@ -112,6 +114,7 @@ module compression #(
 		for(v_init_i=0;v_init_i<8;v_init_i=v_init_i+1) begin : loop_v_init
 			 assign v_init[v_init_i]   =  h_i[W*v_init_i+W-1:W*v_init_i];
 			 assign v_init[v_init_i+8] = 	IV[v_init_i];
+			 assign db_h[v_init_i]     = h_i[W*v_init_i+W-1:W*v_init_i];
 		end
 	 endgenerate
 //       |   v[12] := v[12] ^ (t mod 2**w)   // Low word of the offset.
@@ -120,9 +123,10 @@ module compression #(
 //       |   |   v[14] := v[14] ^ 0xFF..FF   // Invert all bits.
 //       |   END IF.
 	assign v_init_2[15] = v_init[15];
-	assign v_init_2[14] = v_init[14] ^ {W{F_b}};
-	assign v_init_2[13] = v_init[13] ^ LL_b[2*W-1:W];
-	assign v_init_2[12] = v_init[12] ^ LL_b[W-1:0];
+//	assign v_init_2[14] = v_init[14] ^ {W{F_b}};
+	assign v_init_2[14] = v_init[14] ^ {W{1'b1}};
+	assign v_init_2[13] = v_init[13] ^ LL_b[2*W-1:W];// High word of the offset
+	assign v_init_2[12] = v_init[12] ^ LL_b[W-1:0]; // Low word of the offset
 	genvar v_init_2_i;
 	generate
 		for(v_init_2_i=0;v_init_2_i<12; v_init_2_i=v_init_2_i+1) begin : loop_v_init_2_i
@@ -145,6 +149,8 @@ module compression #(
 			end
 		end
 	endgenerate
+	// TODO : modify list block flag
+	//
 	// modulo can only be done with a power of 2 on the right hand side
 	// 10 : 01010, 11 : 01011, 12 : 01100
 	//      00000,      00001       00010
@@ -250,12 +256,6 @@ module compression #(
 
 	genvar p0_idx;
 // There is a constant gap between the values of a, b, c and d : 
-// p0_a = p0_idx;
-// p0_b = p0_idx + 4;
-// p0_c = p0_idx + 8;
-// p0_d = p0_idx + 12;
-// p0_x = p0_idx*2;
-// p0_y = p0_idx*2+1;
 //
 //                   G( v, a, b,  c,  d,    x,     y)         p0_idx
 //      |   |   v := G( v, 0, 4,  8, 12, m[s[ 0]], m[s[ 1]] ) 0
@@ -264,95 +264,101 @@ module compression #(
 //      |   |   v := G( v, 3, 7, 11, 15, m[s[ 6]], m[s[ 7]] ) 3
 	generate 
 		for(p0_idx=0; p0_idx<4; p0_idx=p0_idx+1 ) begin : loop_g_v_part0
-
+			localparam a = p0_idx;
+			localparam b = p0_idx + 4;
+			localparam c = p0_idx + 8;
+			localparam d = p0_idx + 12;
+			localparam x = p0_idx*2;
+			localparam y = p0_idx*2+1;
 			// Part 0
 			// v[a] := (v[a] + v[b] + x) mod 2**w
-			assign { unused_v_add_carry_p0[p0_idx], v_p0[p0_idx] }= v_current[p0_idx] + v_current[p0_idx+4] + m_prime[p0_idx*2];
+			assign { unused_v_add_carry_p0[a], v_p0[a] }= v_current[a] + v_current[b] + m_prime[x];
 			// v[d] := (v[d] ^ v[a]) >>> R1
 			right_rot #(R1 , W) rot_p0_r1
 			(
-				.data_i((v_current[p0_idx+12] ^ v_p0[p0_idx])),
-				.data_o(v_p0[p0_idx+12])
+				.data_i((v_current[d] ^ v_p0[a])),
+				.data_o(v_p0[d])
 			);
 			// v[c] := (v[c] + v[d])     mod 2**w
-			assign { unused_v_add_carry_p0[p0_idx+8] , v_p0[p0_idx+8] } = v_current[p0_idx+8] + v_p0[p0_idx+12];
+			assign { unused_v_add_carry_p0[c] , v_p0[c] } = v_current[c] + v_p0[d];
 			// v[b] := (v[b] ^ v[c]) >>> R2
 			right_rot #( R2, W) rot_p0_r2
 			(
-				.data_i((v_current[p0_idx+4] ^ v_p0[p0_idx+8])),
-				.data_o(v_p0[p0_idx+4])
+				.data_i((v_current[b] ^ v_p0[c])),
+				.data_o(v_p0[b])
 			);
 			// Part 1
 			// v[a] := (v[a] + v[b] + y) mod 2**w
 			addder_3way add3_p0_2(
-				.x0_i(v_p0[p0_idx]),
-				.x1_i(v_p0[p0_idx+4]),
-				.x2_i(m_prime[p0_idx*2+1]),
-				.y_o(v_p1[p0_idx])
+				.x0_i(v_p0[a]),
+				.x1_i(v_p0[b]),
+				.x2_i(m_prime[y]),
+				.y_o(v_p1[a])
 			);
 	
 			// v[d] := (v[d] ^ v[a]) >>> R3
 			right_rot #(R3, W ) rot_p1_r3
 			(
-				.data_i((v_p0[p0_idx+12] ^ v_p1[p0_idx])),
-				.data_o(v_p1[p0_idx+12])
+				.data_i((v_p0[d] ^ v_p1[a])),
+				.data_o(v_p1[d])
 			);
 			// v[c] := (v[c] + v[d])     mod 2**w
-			assign { unused_v_add_carry_p1[p0_idx+8], v_p1[p0_idx+8] } = v_p0[p0_idx+8] + v_p1[p0_idx+12];
+			assign { unused_v_add_carry_p1[c], v_p1[c] } = v_p0[c] + v_p1[d];
 			// v[b] := (v[b] ^ v[c]) >>> R4
 			right_rot #( R4, W ) rot_p1_r4
 			(
-				.data_i((v_p0[p0_idx+4] ^ v_p1[p0_idx+8])),
-				.data_o(v_p1[p0_idx+4])
+				.data_i((v_p0[b] ^ v_p1[c])),
+				.data_o(v_p1[b])
 			);
 		end
 	endgenerate
 	genvar p2_idx;
+	//          v, a, b, c,   d,     x   , y  
 	//  v := G( v, 0, 5, 10, 15, m[s[ 8]], m[s[ 9]] )
 	//  v := G( v, 1, 6, 11, 12, m[s[10]], m[s[11]] )
 	//  v := G( v, 2, 7,  8, 13, m[s[12]], m[s[13]] )
 	//  v := G( v, 3, 4,  9, 14, m[s[14]], m[s[15]] )
 	generate 
 		for(p2_idx=0; p2_idx<4; p2_idx=p2_idx+1) begin : loop_g_v_part2
-			//	p2_a = p2_idx;
-			//	p2_b = 4  + ( p2_idx + 1 ) % 4;
-			//	p2_c = 8  + ( p2_idx + 2 ) % 4;
-			//	p2_d = 12 + ( p2_idx + 3 ) % 4;
-			//	p2_x = p2_idx*2 + 8;
-			//	p2_y = p2_idx*2 + 9;
+			localparam a = p2_idx;
+			localparam b = 4  + ((p2_idx + 1) % 4);//  5   6,  7,  4
+			localparam c = 8  + ((p2_idx + 2) % 4);// 10, 11,  8,  9
+			localparam d = 12 + ((p2_idx + 3) % 4);// 15, 12, 13, 14
+			localparam x = (p2_idx*2) + 8; // 8, 10, 12, 14
+			localparam y = (p2_idx*2) + 9; // 9, 11, 13, 15
 			// Part 2
 			// v[a] := (v[a] + v[b] + x) mod 2**w
-			assign { unused_v_add_carry_p2[p2_idx], v_p2[p2_idx] } = v_p1[p2_idx] + v_p1[4  + ( p2_idx + 1 ) % 4] + m_prime[p2_idx*2 + 8];
+			assign { unused_v_add_carry_p2[a], v_p2[a] } = v_p1[a] + v_p1[b] + m_prime[x];
 			// v[d] := (v[d] ^ v[a]) >>> R1
 			right_rot #(R1 , W) rot_p2_r1
 			(
-				.data_i((v_p1[12 + ( p2_idx + 3 ) % 4] ^ v_p2[p2_idx])),
-				.data_o(v_p2[12 + ( p2_idx + 3 ) % 4])
+				.data_i((v_p1[d] ^ v_p2[a])),
+				.data_o(v_p2[d])
 			);
 			// v[c] := (v[c] + v[d])     mod 2**w
-			assign { unused_v_add_carry_p2[8+(p2_idx +2)%4], v_p2[8+(p2_idx +2)%4] } = v_p1[8  + ( p2_idx + 2 ) % 4] + v_p2[12 + ( p2_idx + 3 ) % 4];
+			assign { unused_v_add_carry_p2[c], v_p2[c] } = v_p1[c] + v_p2[d];
 			// v[b] := (v[b] ^ v[c]) >>> R2
 			right_rot #( R2, W) rot_p2_r2
 			(
-				.data_i((v_p1[4  + ( p2_idx + 1 ) % 4] ^ v_p2[8  + ( p2_idx + 2 ) % 4])),
-				.data_o(v_p2[4  + ( p2_idx + 1 ) % 4])
+				.data_i((v_p1[b] ^ v_p2[c])),
+				.data_o(v_p2[b])
 			);
 			// Part 3
 			// v[a] := (v[a] + v[b] + y) mod 2**w
-			assign { unused_v_add_carry_p3[p2_idx], v_p3[p2_idx] } = v_p2[p2_idx] + v_p2[4  + ( p2_idx + 1 ) % 4] + m_prime[p2_idx*2 + 9];
+			assign { unused_v_add_carry_p3[a], v_p3[a] } = v_p2[a] + v_p2[b] + m_prime[y];
 			// v[d] := (v[d] ^ v[a]) >>> R3
 			right_rot #(R3, W ) rot_p3_r3
 			(
-				.data_i((v_p2[12 + ( p2_idx + 3 ) % 4] ^ v_p3[p2_idx])),
-				.data_o(v_p3[12 + ( p2_idx + 3 ) % 4])
+				.data_i((v_p2[d] ^ v_p3[a])),
+				.data_o(v_p3[d])
 			);
 			// v[c] := (v[c] + v[d])     mod 2**w
-			assign { unused_v_add_carry_p3[8 +(p2_idx+2)%4], v_p3[8 +(p2_idx+2)%4] } = v_p2[8  + ( p2_idx + 2 ) % 4] + v_p3[12 + ( p2_idx + 3 ) % 4];
+			assign { unused_v_add_carry_p3[c], v_p3[c] } = v_p2[c] + v_p3[d];
 			// v[b] := (v[b] ^ v[c]) >>> R4
 			right_rot #( R4, W ) rot_p3_r4
 			(
-				.data_i((v_p2[4  + ( p2_idx + 1 ) % 4] ^ v_p3[8  + ( p2_idx + 2 ) % 4])),
-				.data_o(v_p3[4  + ( p2_idx + 1 ) % 4])
+				.data_i((v_p2[b] ^ v_p3[c])),
+				.data_o(v_p3[b])
 			);
 		end
 	endgenerate

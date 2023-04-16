@@ -17,13 +17,12 @@ module blake2 #(
 //                constants = | (32, 24, 16, 63) | (16, 12,  8,  7) |
 //              --------------+------------------+------------------+
 // Configured by default with BLAKE2b
-	 parameter NN     = 32, // output hash size in bytes, hash-512 : 64, hash-256 : 32 
-	 parameter NN_b   = 8'b0010_0000, // hash size in bytes, hash-512 : 8'b0100_0000, hash-256 : 8'b0010_0000
+	 parameter NN     = 64, // output hash size in bytes, hash-512 : 64, hash-256 : 32 
+	 parameter NN_b   = 8'b0100_0000, // hash size in bytes, hash-512 : 8'b0100_0000, hash-256 : 8'b0010_0000
 	 parameter NN_b_l = 8, 
 	 parameter W      = 64,
 	 parameter DD     = 1, // dd, number of message blocks
-      // parameter LL_b   = { {(W*2)-9{1'b0}}, 9'b100000000},// input size in bytes
-         parameter LL_b   = { {(W*2)-2{1'b0}}, 2'b11},// input size in bytes
+         parameter LL_b   = { {(W*2)-8{1'b0}}, 8'b10000000},// input size in bytes
 	 parameter R1	  = 32, // rotation bits, used in G
 	 parameter R2	  = 24,
 	 parameter R3	  = 16,
@@ -52,8 +51,8 @@ module blake2 #(
 	
 	genvar h_idx;
 	generate
+	       	// h[1..7] := IV[1..7] // Initialization Vector.
 	        for(h_idx=1; h_idx<8; h_idx=h_idx+1) begin : loop_h_idx
-	       	// h[0..7] := IV[0..7] // Initialization Vector.
 	       	assign h[(h_idx*W)+W-1:h_idx*W] = IV[h_idx];
 	       end
 	endgenerate
