@@ -4,7 +4,7 @@ Partial implementation of the Blake2 cryptographic hash function( RFC7693 ) in
 synthesizable RTL.
 
 This code was written in a configurable manner to support both BLAKE2
-b and s variants, but only b variant has been thougrougly tested thus far.
+b and s variants, but *only the b variant has been thougrougly tested thus far*.
 
 This implementation does not currently support secret keys.
 
@@ -20,13 +20,13 @@ This implementation does not currently support secret keys.
 
 Out test bench includes 2 parts :
 
-    - `blake2_test.vhd`, written in VHDL.
-        Test's the correctness of this blake2's RTL implementation as well as 
-        checking no unexpected `X`'s are produced by our module.
+`blake2_test.vhd`, written in VHDL.
+Test's the correctness of this blake2's RTL implementation as well as 
+checking no unexpected `X`'s are produced by our module.
 
-    - `test_vector`, written in C
-        Uses the official blake2 software implementation as our golden model to
-        generate test vectors and writes them into files.
+`test_vector`, written in C
+Uses the official blake2 software implementation as our golden model to
+generate test vectors and writes them into files.
         
 
 RTL's output correcteness is checked against multiple test vectors read from files.
