@@ -1,7 +1,7 @@
 *
-!README.md
+!*.md
 !*.v
-!*.vhd
+!blake2_test.vhd
 !.gitignore
 !rfc7693.txt
 !*.c
