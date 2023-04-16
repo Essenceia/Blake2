@@ -5,7 +5,7 @@
 #include "rand.h"
 
 // number of test vectors to be generated
-#define TEST_NUM 1
+#define TEST_NUM 10
 // input vector size in bytes
 #define IN_SIZE  128
 // output vector size in bytes
@@ -14,7 +14,8 @@
 int main(){
 	int i, t;
 	tvf_s* tv;
-	uint8_t res, d[IN_SIZE], o[OUT_SIZE];
+	uint8_t res = 0;
+	uint8_t d[IN_SIZE], o[OUT_SIZE];
 	
 	//res = blake2b_selftest();
 	// open files
@@ -38,13 +39,15 @@ int main(){
 			printf("%02X",d[i]);
 		}
 		# endif
-		
+		// write input data to file	
 		write_data8(tv->f[0], d, IN_SIZE);
 		
 		// uint8_t *out, const void *in, const void *key, size_t outlen, size_t inlen, size_t keylen );	
-		blake2b(o, d, NULL, OUT_SIZE, IN_SIZE, 0 );		
+		blake2b(&o, &d, NULL, OUT_SIZE, IN_SIZE, 0 );		
 		
+		// write output to file
 		write_data8(tv->f[1], o, OUT_SIZE);
+
 		#ifdef DEBUG
 		printf("\",\"outlen\":%d,\"out[%d:0]\":\"", OUT_SIZE, OUT_SIZE*8-1);
 		for( i =OUT_SIZE; i>=0 ;i-- ){
@@ -53,9 +56,6 @@ int main(){
 		printf("\"\n");
 		#endif
 	
-		// B testing
-		
-		// S testing
 	}	
 	// close files
 	res |= close_files(tv);
