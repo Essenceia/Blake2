@@ -125,8 +125,8 @@ BEGIN
 	begin
 	-- file location is relative
    	-- open files containing test vectors, different files for input/output
-	file_open( tb_data_i_file, "test_vector/b_data_i.txt", read_mode);
-   	file_open( tb_hash_o_file, "test_vector/b_hash_o.txt", read_mode);
+	file_open( tb_data_i_file, "tv/b_data_i.txt", read_mode);
+   	file_open( tb_hash_o_file, "tv/b_hash_o.txt", read_mode);
 	nreset <= '0';
 	wait for 16 ns;
 		nreset  <= '1';

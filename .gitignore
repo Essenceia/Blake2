@@ -1,4 +1,6 @@
 *
+!doc
+!doc/**
 !*.md
 !*.v
 !blake2_test.vhd
@@ -8,7 +10,7 @@
 !*.sh
 !*.h
 !makefile
-!test_vector
+!tv
 !*_data_i.txt
 !*_hash_o.txt
 !libb2_la-blake2b.o
