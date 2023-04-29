@@ -32,26 +32,25 @@ module addder_3way #(
 endmodule
 
 module compression #(
-	parameter W  = 64, 
+	parameter W    = 64, 
 	parameter LL_b = { {(W*2)-8{1'b0}}, 8'b10000000},
-	parameter F_b = 1'b1, // final block flag
-	parameter R1 = 32, // rotation bits, used in G
-	parameter R2 = 24,
-	parameter R3 = 16,
-	parameter R4 = 63,
-	parameter R  = 4'd12 // 4'b1100 number of rounds in v srambling
+	parameter F_b  = 1'b1, // final block flag
+	parameter R1   = 32, // rotation bits, used in G
+	parameter R2   = 24,
+	parameter R3   = 16,
+	parameter R4   = 63,
+	parameter R    = 4'd12 // 4'b1100 number of rounds in v srambling
 	)
 	(
-	input         clk,
-	input         nreset,
+	input               clk,
+	input               nreset,
 	
-	input         valid_i,
-	
+	input               valid_i,	
 	input [(W*8) -1:0]  h_i, // input driver must guaranty that the value of h_i is constant until a valid output is produced
 	input [(W*16)-1:0]  m_i,
 	
-	output [(W*8) -1:0] h_o,    
-	output              valid_o
+	output              valid_o,
+	output [(W*8) -1:0] h_o
 	);
 	 
 	reg  [3:0] fsm_q;

@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 // Parametric implementation of Blake2 to implement b and s versions.
 // Note : Doesn't support the use of a secret key.
-module blake2 #( 
+
 // Configurations for b and s versions :
 //
 //                            | BLAKE2b          | BLAKE2s          |
@@ -17,21 +17,23 @@ module blake2 #(
 //                constants = | (32, 24, 16, 63) | (16, 12,  8,  7) |
 //              --------------+------------------+------------------+
 // Configured by default with BLAKE2b
+
+module blake2 #( 
 	 parameter NN     = 64, // output hash size in bytes, hash-512 : 64, hash-256 : 32 
-	 parameter NN_b   = 8'b0100_0000, // hash size in bytes, hash-512 : 8'b0100_0000, hash-256 : 8'b0010_0000
-	 parameter NN_b_l = 8, 
-	 parameter W      = 64,
+	 parameter NN_b   = 8'b0100_0000, // hash size in binary, hash-512 : 8'b0100_0000, hash-256 : 8'b0010_0000
+	 parameter NN_b_l = 8, // NN_b bit length 
+	 parameter W      = 64,// bits in word
 	 parameter DD     = 1, // dd, number of message blocks
-         parameter LL_b   = { {(W*2)-8{1'b0}}, 8'b10000000},// input size in bytes
+     parameter LL_b   = { {(W*2)-8{1'b0}}, 8'b10000000},// input size in bytes
 	 parameter R1	  = 32, // rotation bits, used in G
 	 parameter R2	  = 24,
 	 parameter R3	  = 16,
 	 parameter R4	  = 63,
 	 parameter R 	  = 4'd12 // number of rounds in v srambling
-
 	)(
-	input clk,
-	input nreset,
+	input                 clk,
+	input                 nreset,
+
 	input 	              valid_i,
 	input [(W*16*DD)-1:0] data_i,
 	output                hash_v_o,
@@ -53,7 +55,7 @@ module blake2 #(
 	generate
 	       	// h[1..7] := IV[1..7] // Initialization Vector.
 	        for(h_idx=1; h_idx<8; h_idx=h_idx+1) begin : loop_h_idx
-	       	assign h[(h_idx*W)+W-1:h_idx*W] = IV[h_idx];
+	       		assign h[(h_idx*W)+W-1:h_idx*W] = IV[h_idx];
 	       end
 	endgenerate
 	// Parameter block p[0]

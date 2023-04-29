@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-// Blake2b wrapper for 512 and 256 hash
+// Blake2 wrapper for 512 and 256 hash
 module blake2b_hash512(
 	input clk,
 	input nreset,
@@ -14,15 +14,16 @@ module blake2b_hash512(
 		.valid_i(valid_i),
 		.data_i(data_i),
 		.hash_v_o(hash_v_o),
-                .hash_o(hash_o)
+		.hash_o(hash_o)
 	);
 endmodule
 
-module blake2b_hash256(
-	input clk,
-	input nreset,
+module blake2s_hash256(
+	input          clk,
+	input 	       nreset,
+
 	input 	       valid_i,
-	input [1023:0] data_i,
+	input  [511:0] data_i,
 	output         hash_v_o,
 	output [255:0] hash_o
 	);
@@ -32,6 +33,6 @@ module blake2b_hash256(
 		.valid_i(valid_i),
 		.data_i(data_i),
 		.hash_v_o(hash_v_o),
-                .hash_o(hash_o)
+		.hash_o(hash_o)
 	);
 endmodule
