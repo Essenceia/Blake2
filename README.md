@@ -10,7 +10,7 @@ This implementation does not currently support secret keys.
 
 ## RTL
 
-### blake2 hash wrapper 
+### blake2 hash  
 
 As blake2 module was written in a paramettric fashion to be configured for both the 64B (b) and 32B (s) versions
 of blake2 we implement a wrapper used to pass on the correct configuration.
@@ -44,7 +44,7 @@ module blake2s_hash256(
 	);
 ```
 
-### blake2 module
+### blake2
 
 Most of blake2 hash logic is in the `compression` module, this is just another wrapper to set constants. 
 
@@ -73,7 +73,7 @@ module blake2 #(
 	);
 ```
 
-### compression module
+### compression
 
 This is the main module for the blake2 hash.
 
