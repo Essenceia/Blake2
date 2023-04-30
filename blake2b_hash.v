@@ -12,9 +12,9 @@ module blake2b_hash512(
 		.clk(clk),
 		.nreset(nreset),
 		.valid_i(valid_i),
-		.data_i(data_i),
-		.hash_v_o(hash_v_o),
-		.hash_o(hash_o)
+		.d_i(data_i),
+		.valid_o(hash_v_o),
+		.h_o(hash_o)
 	);
 endmodule
 
@@ -31,8 +31,8 @@ module blake2s_hash256(
 		.clk(clk),
 		.nreset(nreset),
 		.valid_i(valid_i),
-		.data_i(data_i),
-		.hash_v_o(hash_v_o),
-		.hash_o(hash_o)
+		.d_i(data_i),
+		.valid_o(hash_v_o),
+		.h_o(hash_o)
 	);
 endmodule

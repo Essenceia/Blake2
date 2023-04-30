@@ -31,23 +31,44 @@ module addder_3way #(
 	assign { unused_carry, y_o } = x2_i + { carry , tmp };
 endmodule
 
-module compression #(
-	parameter W    = 64, 
-	parameter LL_b = { {(W*2)-8{1'b0}}, 8'b10000000},
-	parameter F_b  = 1'b1, // final block flag
-	parameter R1   = 32, // rotation bits, used in G
-	parameter R2   = 24,
-	parameter R3   = 16,
-	parameter R4   = 63,
-	parameter R    = 4'd12 // 4'b1100 number of rounds in v srambling
+// Parametric implementation of Blake2 to implement b and s versions.
+// Note : Doesn't support the use of a secret key.
+
+// Configurations for b and s versions :
+//
+//                            | BLAKE2b          | BLAKE2s          |
+//              --------------+------------------+------------------+
+//               Bits in word | w = 64           | w = 32           |
+//               Rounds in F  | r = 12           | r = 10           |
+//               Block bytes  | bb = 128         | bb = 64          |
+//               Hash bytes   | 1 <= nn <= 64    | 1 <= nn <= 32    |
+//               Key bytes    | 0 <= kk <= 64    | 0 <= kk <= 32    |
+//               Input bytes  | 0 <= ll < 2**128 | 0 <= ll < 2**64  |
+//              --------------+------------------+------------------+
+//               G Rotation   | (R1, R2, R3, R4) | (R1, R2, R3, R4) |
+//                constants = | (32, 24, 16, 63) | (16, 12,  8,  7) |
+//              --------------+------------------+------------------+
+// Configured by default with BLAKE2b
+
+module blake2 #(	
+	parameter NN     = 64, // output hash size in bytes, hash-512 : 64, hash-256 : 32 
+	parameter NN_b   = 8'b0100_0000, // hash size in binary, hash-512 : 8'b0100_0000, hash-256 : 8'b0010_0000
+	parameter NN_b_l = 8, // NN_b bit length
+	parameter W     = 64, 
+	parameter LL_b   = { {(W*2)-8{1'b0}}, 8'b10000000},
+	parameter F_b    = 1'b1, // final block flag
+	parameter R1     = 32, // rotation bits, used in G
+	parameter R2     = 24,
+	parameter R3     = 16,
+	parameter R4     = 63,
+	parameter R      = 4'd12 // 4'b1100 number of rounds in v srambling
 	)
 	(
 	input               clk,
 	input               nreset,
 	
 	input               valid_i,	
-	input [(W*8) -1:0]  h_i, // input driver must guaranty that the value of h_i is constant until a valid output is produced
-	input [(W*16)-1:0]  m_i,
+	input [(W*16)-1:0]  d_i,
 	
 	output              valid_o,
 	output [(W*8) -1:0] h_o
@@ -80,6 +101,7 @@ module compression #(
 	wire [W-1:0] m_prime[15:0]; // m[s[i]]
 		 
 	wire [W-1:0] IV[0:7];
+	wire [W-1:0] h_init[0:7];
 	wire [63:0]  SIGMA[9:0];
 	wire [3:0]   sigma_sel;
 	wire [63:0]  sigma_row; // currently selected sigma row
@@ -105,15 +127,28 @@ module compression #(
 	assign IV[6] = 64'h1F83D9ABFB41BD6B;
 	assign IV[7] = 64'h5BE0CD19137E2179;
 	
+	// Initialize h init
+	genvar h_idx;
+	generate
+	       	// h[1..7] := IV[1..7] // Initialization Vector.
+	        for(h_idx=1; h_idx<8; h_idx=h_idx+1) begin : loop_h_init
+	       		assign h_init[h_idx] = IV[h_idx];
+	       end
+	endgenerate
+	// Parameter block p[0]
+	// h[0] := h[0] ^ 0x01010000 ^ (kk << 8) ^ nn
+	assign h_init[0] = IV[0] ^ {{W-32{1'b0}},32'h01010000} ^ {{W-NN_b_l{1'b0}} , NN_b};
+	
+	
 	// Initialize local work vector v[0..15]
 	// v[0..7]  := h[0..7]              // First half from state.
 	// v[8..15] := IV[0..7]            // Second half from IV.
 	genvar v_init_i;
 	generate
 		for(v_init_i=0;v_init_i<8;v_init_i=v_init_i+1) begin : loop_v_init
-			 assign v_init[v_init_i]   =  h_i[W*v_init_i+W-1:W*v_init_i];
-			 assign v_init[v_init_i+8] = 	IV[v_init_i];
-			 assign db_h[v_init_i]     = h_i[W*v_init_i+W-1:W*v_init_i];
+			 assign v_init[v_init_i]   = h_init[v_init_i];
+			 assign v_init[v_init_i+8] = IV[v_init_i];
+			 assign db_h[v_init_i]     = h_init[v_init_i];
 		end
 	 endgenerate
 //       |   v[12] := v[12] ^ (t mod 2**w)   // Low word of the offset.
@@ -190,7 +225,7 @@ module compression #(
 					m_q[m_q_i] <= m_current[m_q_i];
 			end
 			// m_current ( stand in for next )
-			assign m_current[m_q_i] = valid_i ? m_i[(W*m_q_i)+(W-1): W*m_q_i ] : m_q[m_q_i];
+			assign m_current[m_q_i] = valid_i ? d_i[(W*m_q_i)+(W-1): W*m_q_i ] : m_q[m_q_i];
 		end
 	endgenerate
 		
@@ -369,10 +404,9 @@ module compression #(
 //      |   RETURN h[0..7]                  // New state.
 
 	// calculate output h_o value
-	genvar h_idx;
 	generate
-		for(h_idx=0; h_idx<8; h_idx=h_idx+1 ) begin : loop_h_idx
-			assign h_o[(h_idx+1)*W-1:h_idx*W] = h_i[(h_idx+1)*W-1:h_idx*W] ^ v_current[h_idx] ^ v_current[h_idx+8];
+		for(h_idx=0; h_idx<8; h_idx=h_idx+1 ) begin : loop_h_o
+			assign h_o[(h_idx+1)*W-1:h_idx*W] = h_init[h_idx] ^ v_current[h_idx] ^ v_current[h_idx+8];
 		end
 	endgenerate
 	
