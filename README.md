@@ -6,7 +6,10 @@ synthesizable RTL.
 This code was written in a configurable manner to support both BLAKE2
 b and s variants, but **only the b variant has been thougrougly tested thus far**.
 
-This implementation does not currently support secret keys or streaming data to be compressed: it
+It this module only supports one block of data to hash at a time and produces an output after 12 cycles.
+![Blake2b wave overview!](/doc/wave.png)
+
+:warning: This implementation does not currently support secret keys or streaming data to be compressed: it
 only acccepts one block.
 
 ## RTL
