@@ -6,7 +6,8 @@ synthesizable RTL.
 This code was written in a configurable manner to support both BLAKE2
 b and s variants, but **only the b variant has been thougrougly tested thus far**.
 
-This implementation does not currently support secret keys.
+This implementation does not currently support secret keys or streaming data to be compressed: it
+only acccepts one block.
 
 ## RTL
 
@@ -46,7 +47,7 @@ module blake2s_hash256(
 
 ### blake2
 
-Most of blake2 hash logic is in the `compression` module, this is just another wrapper to set constants. 
+This is the main module for the blake2 hash, by default the parameters are configured for the `b` variant of blake2.
 
 Module interface and parameters :
 ```
@@ -73,33 +74,41 @@ module blake2 #(
 	);
 ```
 
-### compression
+### right\_rot 
 
-This is the main module for the blake2 hash.
+This module performs a right circular rotation, the size of the input vector `W`, and the number of shifts `ROT_I` are set
+as parameters. 
 
-
-Module interface :
 ```
-module compression #(
-	parameter W    = 64, 
-	parameter LL_b = { {(W*2)-8{1'b0}}, 8'b10000000},
-	parameter F_b  = 1'b1, // final block flag
-	parameter R1   = 32, // rotation bits, used in G
-	parameter R2   = 24,
-	parameter R3   = 16,
-	parameter R4   = 63,
-	parameter R    = 4'd12 // 4'b1100 number of rounds in v srambling
+module right_rot #(
+	parameter ROT_I=32,
+	parameter W=64
 	)
 	(
-	input               clk,
-	input               nreset,
+	input  [W-1:0] data_i,
+	output [W-1:0] data_o
+	);
+	assign data_o[W-1:0] = { data_i[ROT_I-1:0], data_i[W-1:ROT_I]};
+endmodule
+```
+
+### adder\_3way
+
+This module performs a 3 way addition and returns the result. Both carries are disgarded, as the mixing function in which this 3 way add 
+is used doesn't call for them, as such input and output vectors have the same length.
+This lenght is defined by the parameter `W`.
+
+Module interface and paramters :
+```
+module addder_3way #(
+	parameter W=64
+	)
+	(
+	input [W-1:0] x0_i,
+	input [W-1:0] x1_i,
+	input [W-1:0] x2_i,
 	
-	input               valid_i,	
-	input [(W*8) -1:0]  h_i, // input driver must guaranty that the value of h_i is constant until a valid output is produced
-	input [(W*16)-1:0]  m_i,
-	
-	output              valid_o,
-	output [(W*8) -1:0] h_o
+	output [W-1:0] y_o
 	);
 ```
 

@@ -2,11 +2,11 @@
 	 
 // G Rotation | (R1, R2, R3, R4)
 // constants  | (32, 24, 16, 63) 
-	
 
 module right_rot #(
 	parameter ROT_I=32,
-	parameter W=64)
+	parameter W=64
+	)
 	(
 	input  [W-1:0] data_i,
 	output [W-1:0] data_o
@@ -15,7 +15,8 @@ module right_rot #(
 endmodule
 
 module addder_3way #(
-	parameter W=64)
+	parameter W=64
+	)
 	(
 	input [W-1:0] x0_i,
 	input [W-1:0] x1_i,
