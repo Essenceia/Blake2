@@ -28,7 +28,7 @@ module blake2b_hash512(
 	output         hash_v_o,
 	output [511:0] hash_o // Seed, output of the hast512
 	);
-	blake2 #( .NN(64), .NN_b(8'b0100_0000)) m_hash512(
+	blake2 #(.NN_b(8'b0100_0000)) m_hash512(
 		.clk(clk),
 		.nreset(nreset),
 		.valid_i(valid_i),
@@ -48,7 +48,6 @@ module blake2s_hash256(
 	output [255:0] hash_o
 	);
 	blake2 #( 
-		.NN(32), 
 		.NN_b(8'b0010_0000),
 		.W(32),
 		.R1(16),

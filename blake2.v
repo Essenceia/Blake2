@@ -36,7 +36,6 @@ endmodule
 // Main blake2 module
 // default parameter configuration is for blake2b
 module blake2 #(	
-	parameter NN     = 64, // output hash size in bytes, hash-512 : 64, hash-256 : 32 
 	parameter NN_b   = 8'b0100_0000, // hash size in binary, hash-512 : 8'b0100_0000, hash-256 : 8'b0010_0000
 	parameter NN_b_l = 8, // NN_b bit length
 	parameter W      = 64, 
@@ -323,7 +322,7 @@ module blake2 #(
 			);
 			// Part 1
 			// v[a] := (v[a] + v[b] + y) mod 2**w
-			addder_3way add3_p0_2(
+			addder_3way #(.W(W)) add3_p0_2(
 				.x0_i(v_p0[a]),
 				.x1_i(v_p0[b]),
 				.x2_i(m_prime[y]),
