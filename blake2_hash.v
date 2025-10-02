@@ -47,7 +47,16 @@ module blake2s_hash256(
 	output         hash_v_o,
 	output [255:0] hash_o
 	);
-	blake2 #( .NN(32), .NN_b(8'b0010_0000)) m_hash256(
+	blake2 #( 
+		.NN(32), 
+		.NN_b(8'b0010_0000),
+		.W(32),
+		.R1(16),
+		,R2(12),
+		.R3(8),
+		.R4(7),
+		.R(4'd10)
+		) m_hash256(
 		.clk(clk),
 		.nreset(nreset),
 		.valid_i(valid_i),
