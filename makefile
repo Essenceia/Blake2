@@ -137,7 +137,7 @@ build:
 
 entry_deps := top.v blake2_hash.v blake2.v
 
-lint_entry: $(entry_deps)
+lint: $(entry_deps)
 	$(call LINT,$^,top)
 
 #############

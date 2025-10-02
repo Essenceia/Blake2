@@ -115,6 +115,16 @@ module addder_3way #(
 	);
 ```
 
+## Lint
+
+Lint is supported on `iverilog` and `verilator`, simulator selection can be done by defining the `SIM` argument when invoking 
+the makefile ( `SIM=V` for verilator, `SIM=I` for iverilog ( default )). 
+I recommend using `verilator`. 
+
+```
+make lint SIM=V
+```
+
 ## Test bench
 
 Out test bench includes 2 parts :
