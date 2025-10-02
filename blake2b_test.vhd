@@ -5,10 +5,10 @@ use std.textio.all;
 use ieee.std_logic_textio.all;
 
  
-ENTITY blake2_test IS
-END blake2_test;
+ENTITY blake2b_test IS
+END blake2b_test;
  
-ARCHITECTURE behavior OF blake2_test IS 
+ARCHITECTURE behavior OF blake2b_test IS 
  
     -- Component Declaration for the Unit Under Test (UUT)
  

@@ -3,7 +3,7 @@
 !doc/**
 !*.md
 !*.v
-!blake2_test.vhd
+!blake2b_test.vhd
 !.gitignore
 !rfc7693.txt
 !*.c
