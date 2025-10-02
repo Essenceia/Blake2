@@ -102,16 +102,30 @@ module blake2 #(
 	assign SIGMA[7] = { 4'd10 , 4'd2,  4'd6,  4'd8,  4'd4,  4'd15, 4'd0,  4'd5,  4'd9,  4'd3,  4'd1,   4'd12,  4'd14, 4'd7,  4'd11, 4'd13};
 	assign SIGMA[8] = { 4'd5  , 4'd10, 4'd4,  4'd1,  4'd7,  4'd13, 4'd2,  4'd12, 4'd8,  4'd0,  4'd3,   4'd11,  4'd9,  4'd14, 4'd15, 4'd6 };
 	assign SIGMA[9] = { 4'd0  , 4'd13, 4'd12, 4'd3,  4'd14, 4'd9,  4'd11, 4'd15, 4'd5,  4'd1,  4'd6,   4'd7,   4'd4,  4'd8,  4'd2,  4'd10};
-	       				 
-	assign IV[0] = 64'h6A09E667F3BCC908;
-	assign IV[1] = 64'hBB67AE8584CAA73B;
-	assign IV[2] = 64'h3C6EF372FE94F82B;
-	assign IV[3] = 64'hA54FF53A5F1D36F1;
-	assign IV[4] = 64'h510E527FADE682D1;
-	assign IV[5] = 64'h9B05688C2B3E6C1F;
-	assign IV[6] = 64'h1F83D9ABFB41BD6B;
-	assign IV[7] = 64'h5BE0CD19137E2179;
-	
+	       		
+
+	generate /* init vector */
+		if (W == 64) begin : g_iv 
+			assign IV[0] = 64'h6A09E667F3BCC908;
+			assign IV[1] = 64'hBB67AE8584CAA73B;
+			assign IV[2] = 64'h3C6EF372FE94F82B;
+			assign IV[3] = 64'hA54FF53A5F1D36F1;
+			assign IV[4] = 64'h510E527FADE682D1;
+			assign IV[5] = 64'h9B05688C2B3E6C1F;
+			assign IV[6] = 64'h1F83D9ABFB41BD6B;
+			assign IV[7] = 64'h5BE0CD19137E2179;
+		end else begin
+			assign IV[0] = 32'h6A09E667;
+			assign IV[1] = 32'hBB67AE85;
+			assign IV[2] = 32'h3C6EF372;
+			assign IV[3] = 32'hA54FF53A;
+			assign IV[4] = 32'h510E527F;
+			assign IV[5] = 32'h9B05688C;
+			assign IV[6] = 32'h1F83D9AB;
+			assign IV[7] = 32'h5BE0CD19;
+		end
+	endgenerate
+
 	// Initialize h init
 	genvar h_idx;
 	generate
@@ -221,22 +235,23 @@ module blake2 #(
 	genvar i;
 	generate
 		for ( i = 0; i < 16; i=i+1 ) begin : loop_m_prime_elem
-			assign m_prime[i] = {64{ sigma_row_elems[i] == 4'd0  }} & m_current[0]
-					  | {64{ sigma_row_elems[i] == 4'd1  }} & m_current[1]
-					  | {64{ sigma_row_elems[i] == 4'd2  }} & m_current[2]
-					  | {64{ sigma_row_elems[i] == 4'd3  }} & m_current[3]
-					  | {64{ sigma_row_elems[i] == 4'd4  }} & m_current[4]
-					  | {64{ sigma_row_elems[i] == 4'd5  }} & m_current[5]
-					  | {64{ sigma_row_elems[i] == 4'd6  }} & m_current[6]
-					  | {64{ sigma_row_elems[i] == 4'd7  }} & m_current[7]
-					  | {64{ sigma_row_elems[i] == 4'd8  }} & m_current[8]
-					  | {64{ sigma_row_elems[i] == 4'd9  }} & m_current[9]
-					  | {64{ sigma_row_elems[i] == 4'd10 }} & m_current[10]
-					  | {64{ sigma_row_elems[i] == 4'd11 }} & m_current[11]
-					  | {64{ sigma_row_elems[i] == 4'd12 }} & m_current[12]
-					  | {64{ sigma_row_elems[i] == 4'd13 }} & m_current[13]
-					  | {64{ sigma_row_elems[i] == 4'd14 }} & m_current[14]
-					  | {64{ sigma_row_elems[i] == 4'd15 }} & m_current[15]
+			assign m_prime[i] = 
+						{W{ sigma_row_elems[i] == 4'd0  }} & m_current[0]
+					  | {W{ sigma_row_elems[i] == 4'd1  }} & m_current[1]
+					  | {W{ sigma_row_elems[i] == 4'd2  }} & m_current[2]
+					  | {W{ sigma_row_elems[i] == 4'd3  }} & m_current[3]
+					  | {W{ sigma_row_elems[i] == 4'd4  }} & m_current[4]
+					  | {W{ sigma_row_elems[i] == 4'd5  }} & m_current[5]
+					  | {W{ sigma_row_elems[i] == 4'd6  }} & m_current[6]
+					  | {W{ sigma_row_elems[i] == 4'd7  }} & m_current[7]
+					  | {W{ sigma_row_elems[i] == 4'd8  }} & m_current[8]
+					  | {W{ sigma_row_elems[i] == 4'd9  }} & m_current[9]
+					  | {W{ sigma_row_elems[i] == 4'd10 }} & m_current[10]
+					  | {W{ sigma_row_elems[i] == 4'd11 }} & m_current[11]
+					  | {W{ sigma_row_elems[i] == 4'd12 }} & m_current[12]
+					  | {W{ sigma_row_elems[i] == 4'd13 }} & m_current[13]
+					  | {W{ sigma_row_elems[i] == 4'd14 }} & m_current[14]
+					  | {W{ sigma_row_elems[i] == 4'd15 }} & m_current[15]
 					  ;
 		end
 	endgenerate

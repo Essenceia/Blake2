@@ -59,6 +59,7 @@ LINT_FLAGS +=-Wall -g2012 $(if $(assert),-gassertions) -gstrict-expr-width
 LINT_FLAGS +=$(if $(debug),-DDEBUG) 
 else
 LINT_FLAGS += -Wall -Wpedantic -Wno-GENUNNAMED -Wno-LATCH -Wno-IMPLICIT
+LINT_FLAGS += -Wno-DECLFILENAME
 LINT_FLAGS +=$(if $(wip),-Wno-UNUSEDSIGNAL)
 endif
 
@@ -69,9 +70,19 @@ define LINT
 	iverilog $(LINT_FLAGS) -s $2 -o $(BUILD_DIR)/$2 $1
 endef
 else
+define COLOR_OUTPUT
+	sed \
+	-e "s/^\(%Warning-[A-Z0-9_]\+\)/\x1b[1;35m\1\x1b[0m/" \
+	-e "s/\(\.v:[0-9]\+:[0-9]\+\)/\x1b[36m\1\x1b[0m/" \
+	-e "s/\(\bmodule\b\)/\x1b[1;34m\1\x1b[0m/" \
+	-e "s/\(\<[A-Za-z0-9_]\+\>\)(/\x1b[32m\1\x1b[0m(/" \
+	-e "s/\(\^~*\)/\x1b[1;31m\1\x1b[0m/" \
+	-e "s|\(https://[a-zA-Z0-9./?=:_-]\+\)|\x1b[2m\1\x1b[0m|" \
+	-e "s/^\(\s*:.*\)/\x1b[2m\1\x1b[0m/"
+endef
 define LINT
 	mkdir -p build
-	verilator --lint-only $(LINT_FLAGS) $1
+	verilator --lint-only $(LINT_FLAGS) $1 --top $2 2>&1 | $(COLOR_OUTPUT)
 endef
 endif
 
