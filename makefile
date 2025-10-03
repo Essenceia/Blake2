@@ -34,7 +34,7 @@ endif
 ############
 
 # Define simulator we are using, priority to iverilog
-SIM ?= I
+SIM ?= V
 $(info Using simulator: $(SIM))
 
 ###########
