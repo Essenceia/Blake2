@@ -54,38 +54,44 @@ module G(
 	parameter R3,
 	parameter R4
 	)(
-	input [W-1:0]  v_i[15:0],
+	input [W-1:0]  a_i,
+	input [W-1:0]  b_i,
+	input [W-1:0]  c_i,
+	input [W-1:0]  d_i,
 	input [W-1:0]  x_i,
 	input [W-1:0]  y_i,
 
-	output [W-1:0] v_o[15:0]
+	output [W-1:0] a_o,
+	output [W-1:0] b_o,
+	output [W-1:0] c_o,
+	output [W-1:0] d_o
 	);
-	wire [W-1:0] a0, a1;
-	wire [W-1:0] b0, b1;
-	wire [W-1:0] c0, c1;
-	wire [W-1:0] d0, d1;
+	wire [W-1:0] a0;
+	wire [W-1:0] b0;
+	wire [W-1:0] c0;
+	wire [W-1:0] d0;
 	wire unusued_carry0, unusued_carry0;
 
 	// v[a] := (v[a] + v[b] + y) mod 2**w
 	addder_3way #(.W(W)) m_add_0(
-		.x0_i(v_i[a]),
-		.x1_i(v_i[b]),
+		.x0_i(a_i),
+		.x1_i(b_i),
 		.x2_i(x_i),
 		.y_o(a0)
 	);
 	// v[d] := (v[d] ^ v[a]) >>> R1
 	right_rot #(R1 , W) m_rot_0
 	(
-		.data_i((v_i[d] ^ a0[a])),
+		.data_i((d_i ^ a0)),
 		.data_o(d0)
 	);
 	// v[c] := (v[c] + v[d])     mod 2**w
-	{unused_carry, c0} = v_i[c] + d0;
+	{unused_carry, c0} = c_i + d0;
 	
 	// v[b] := (v[b] ^ v[c]) >>> R2
 	right_rot #(R2 , W) m_rot_1
 	(
-		.data_i((v_i[b] ^ c0)),
+		.data_i((b_i ^ c0)),
 		.data_o(b0)
 	);
 	// v[a] := (v[a] + v[b] + y) mod 2**w
@@ -94,34 +100,23 @@ module G(
 		.x0_i(a0),
 		.x1_i(b0),
 		.x2_i(y),
-		.y_o(a1)
+		.y_o(a_o)
 	);
 	// v[d] := (v[d] ^ v[a]) >>> R3
 	right_rot #(R3 , W) m_rot_2
 	(
 		.data_i((d0 ^ a0)),
-		.data_o(d1)
+		.data_o(d_o)
 	);
 
 	// v[c] := (v[c] + v[d])     mod 2**w
-	{unused_carry1, c1} = c0 + d1;
+	{unused_carry1, c_o} = c0 + d_o;
 
 	// v[b] := (v[b] ^ v[c]) >>> R4
 	right_rot #(R4 , W) m_rot_3
 	(
-		.data_i((b0 ^ c1)),
-		.data_o(b1)
+		.data_i((b0 ^ c_o)),
+		.data_o(b_o)
 	);
 
-	generate(i=0; i<15; i++) begin: loop_v
-		if ((i != a) && (i != b) && (i != c) && (i!= d)) begin
-			assign v_o[i] = v_i[i];
-		end
-	endgenerate
-
-	assign v_o[a] = a1;
-	assign v_o[b] = b1;
-	assign v_o[c] = c1;
-	assign v_o[d] = d1;
-	
 endmodule 

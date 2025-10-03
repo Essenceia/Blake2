@@ -75,7 +75,7 @@ module blake2 #(
 	       		
 
 	generate /* init vector */
-		if (W == 64) begin : g_iv 
+		if (W == 64) begin : g_iv_b 
 			assign IV[0] = 64'h6A09E667F3BCC908;
 			assign IV[1] = 64'hBB67AE8584CAA73B;
 			assign IV[2] = 64'h3C6EF372FE94F82B;
@@ -84,7 +84,7 @@ module blake2 #(
 			assign IV[5] = 64'h9B05688C2B3E6C1F;
 			assign IV[6] = 64'h1F83D9ABFB41BD6B;
 			assign IV[7] = 64'h5BE0CD19137E2179;
-		end else begin
+		end else begin : g_iv_s
 			assign IV[0] = 32'h6A09E667;
 			assign IV[1] = 32'hBB67AE85;
 			assign IV[2] = 32'h3C6EF372;
