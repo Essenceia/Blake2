@@ -3,35 +3,6 @@
 // G Rotation | (R1, R2, R3, R4)
 // constants  | (32, 24, 16, 63) 
 
-module right_rot #(
-	parameter ROT_I=32,
-	parameter W=64
-	)
-	(
-	input  [W-1:0] data_i,
-	output [W-1:0] data_o
-	);
-	assign data_o[W-1:0] = { data_i[ROT_I-1:0], data_i[W-1:ROT_I]};
-endmodule
-
-module addder_3way #(
-	parameter W=64
-	)
-	(
-	input [W-1:0] x0_i,
-	input [W-1:0] x1_i,
-	input [W-1:0] x2_i,
-	
-	output [W-1:0] y_o
-	);
-	wire         carry;
-	wire         unused_carry;
-	wire [W-1:0] tmp;
-	
-	assign { carry , tmp } = x0_i + x1_i;
-	assign { unused_carry, y_o } = x2_i + { carry , tmp };
-endmodule
-
 
 // Main blake2 module
 // default parameter configuration is for blake2b
@@ -297,12 +268,12 @@ module blake2 #(
 //      |   |   v := G( v, 3, 7, 11, 15, m[s[ 6]], m[s[ 7]] ) 3
 	generate 
 		for(p0_idx=0; p0_idx<4; p0_idx=p0_idx+1 ) begin : loop_g_v_part0
-			localparam a = p0_idx;
-			localparam b = p0_idx + 4;
-			localparam c = p0_idx + 8;
-			localparam d = p0_idx + 12;
-			localparam x = p0_idx*2;
-			localparam y = p0_idx*2+1;
+			localparam a = p0_idx;     // 0,  1,  2,  3
+			localparam b = p0_idx + 4; // 4,  5,  6,  7
+			localparam c = p0_idx + 8; // 8,  9,  10, 11
+			localparam d = p0_idx + 12;// 12, 13, 14, 15
+			localparam x = p0_idx*2;   // 0,  2,  4,  6
+			localparam y = p0_idx*2+1; // 1,  3,  5,  7
 			// Part 0
 			// v[a] := (v[a] + v[b] + x) mod 2**w
 			assign { unused_v_add_carry_p0[a], v_p0[a] }= v_current[a] + v_current[b] + m_prime[x];
