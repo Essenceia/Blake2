@@ -146,7 +146,7 @@ build:
 # Lint #
 ########
 
-entry_deps := top.v blake2_hash.v blake2.v
+entry_deps := $(wildcard *.v)
 
 lint: $(entry_deps)
 	$(call LINT,$^,top)

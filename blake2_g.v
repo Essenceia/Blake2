@@ -43,7 +43,7 @@ endmodule
 //      |   RETURN v[0..15]
 //      |
 //      END FUNCTION.
-module G(
+module G #(
 	parameter W=32,
 	parameter a,
 	parameter b,
@@ -86,7 +86,7 @@ module G(
 		.data_o(d0)
 	);
 	// v[c] := (v[c] + v[d])     mod 2**w
-	{unused_carry, c0} = c_i + d0;
+	assign {unused_carry, c0} = c_i + d0;
 	
 	// v[b] := (v[b] ^ v[c]) >>> R2
 	right_rot #(R2 , W) m_rot_1
@@ -110,7 +110,7 @@ module G(
 	);
 
 	// v[c] := (v[c] + v[d])     mod 2**w
-	{unused_carry1, c_o} = c0 + d_o;
+	assign {unused_carry1, c_o} = c0 + d_o;
 
 	// v[b] := (v[b] ^ v[c]) >>> R4
 	right_rot #(R4 , W) m_rot_3

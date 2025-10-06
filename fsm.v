@@ -34,7 +34,6 @@ module byte_size_config(
 			CFG_CNT_KK: kk_q <= data_i;
 			CFG_CNT_NN: nn_q <= data_i;
 			CFG_CNT_LL: ll_q <= data_i; 
-			default: end
 		endcase
 	end
 
@@ -46,7 +45,7 @@ endmodule
 module block_data(
 	input wire clk, 
 	input wire nreset, 
-	input wire valid_i
+	input wire valid_i,
 	input wire [1:0] cmd_i,
 	input wire [7:0] data_i,
 
@@ -60,7 +59,7 @@ module block_data(
 	parameter CMD_DATA  = 2'd2;
 	parameter CMD_LAST  = 2'd3;
 
-	reg [7:0]  data_q [63:0];
+	reg [511:0] data_q;
 	reg [6:0]   cnt_q;
 	reg         unusued_cnt_q;
 	wire        data_v;
@@ -84,7 +83,7 @@ module block_data(
 
 	always @(posedge clk) begin
 		if (data_v) begin
-			data_q[cnt_q] <= data_i;
+			data_q <= { data_i, data_q[511:8]};
 		end
 	end
 
@@ -94,7 +93,7 @@ module block_data(
 			last_q <= '0;
 		end else if (start_v | last_v) begin
 			start_q <= start_v;
-			last_q  <= last_vl
+			last_q  <= last_v;
 		end
 	end
 
