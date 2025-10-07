@@ -1,3 +1,18 @@
+
+                     | BLAKE2b          | BLAKE2s          |
+       --------------+------------------+------------------+
+        Bits in word | w = 64           | w = 32           |
+        Rounds in F  | r = 12           | r = 10           |
+        Block bytes  | bb = 128         | bb = 64          |
+        Hash bytes   | 1 <= nn <= 64    | 1 <= nn <= 32    |
+        Key bytes    | 0 <= kk <= 64    | 0 <= kk <= 32    |
+        Input bytes  | 0 <= ll < 2**128 | 0 <= ll < 2**64  |
+       --------------+------------------+------------------+
+        G Rotation   | (R1, R2, R3, R4) | (R1, R2, R3, R4) |
+         constants = | (32, 24, 16, 63) | (16, 12,  8,  7) |
+       --------------+------------------+------------------+        
+
+
         FUNCTION BLAKE2( d[0..dd-1], ll, kk, nn )
         |
         |     h[0..7] := IV[0..7]          // Initialization Vector.

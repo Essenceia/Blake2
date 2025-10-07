@@ -10,6 +10,7 @@ module blake2 #(
 	parameter NN_b   = 8'b0100_0000, // hash size in binary, hash-512 : 8'b0100_0000, hash-256 : 8'b0010_0000
 	parameter NN_b_l = 8, // NN_b bit length
 	parameter W      = 64, 
+	parameter BB     = W*2,
 	parameter LL_b   = { {(W*2)-8{1'b0}}, 8'b10000000},
 	parameter F_b    = 1'b1, // final block flag
 	parameter R1     = 32, // rotation bits, used in G
@@ -21,6 +22,13 @@ module blake2 #(
 	(
 	input               clk,
 	input               nreset,
+
+	input [7:0]         kk_i,
+	input [7:0]         nn_i,
+	input [63:0]        ll_i,
+
+	input wire          block_first_i,               
+	input wire          block_last_i,               
 	
 	input               valid_i,	
 	input [(W*16)-1:0]  d_i,
@@ -28,14 +36,16 @@ module blake2 #(
 	output              valid_o,
 	output [(W*8) -1:0] h_o
 	);
+	localparam BB_clog2 = $clog2(BB); 
 	 
 	reg  [3:0] fsm_q;
 	wire [3:0] fsm_next;
 	wire       fsm_en;
 	wire       v_en;
 	wire       final_round;
-	
-	wire [W-1:0] db_h[7:0];
+
+	wire [63:0]  t;	
+	reg  [59:0]  block_idx_q;
 
 	wire [W-1:0] v_init[15:0];
 	wire [W-1:0] v_init_2[15:0];
@@ -96,6 +106,10 @@ module blake2 #(
 		end
 	endgenerate
 
+	//-------------
+	//
+	// Init
+	//
 	// Initialize h init
 	genvar h_idx;
 	generate
@@ -106,30 +120,36 @@ module blake2 #(
 	endgenerate
 	// Parameter block p[0]
 	// h[0] := h[0] ^ 0x01010000 ^ (kk << 8) ^ nn
-	assign h_init[0] = IV[0] ^ {{W-32{1'b0}},32'h01010000} ^ {{W-NN_b_l{1'b0}} , NN_b};
+	assign h_init[0] = IV[0] ^ {{W-32{1'b0}},32'h01010000} ^ {{W-16{1'b0}},k_i,{8{1'b0}}} ^ {{W-8{1'b0}} , nn_i};
 	
-	
+
+	//----------
+	//
+	// Function F
+	//
+	// Calculate t, TODO block index increment
+	assign t = block_last_i ? ll_i: (block_idx_q << BB_clog2);
+	//
 	// Initialize local work vector v[0..15]
 	// v[0..7]  := h[0..7]              // First half from state.
 	// v[8..15] := IV[0..7]            // Second half from IV.
 	genvar v_init_i;
 	generate
 		for(v_init_i=0;v_init_i<8;v_init_i=v_init_i+1) begin : loop_v_init
-			 assign v_init[v_init_i]   = h_init[v_init_i];
-			 assign v_init[v_init_i+8] = IV[v_init_i];
-			 assign db_h[v_init_i]     = h_init[v_init_i];
+			 assign v_init[v_init_i]   = h_init[v_init_i]; // v[0..7] := h[0..7]
+			 assign v_init[v_init_i+8] = IV[v_init_i];     // v[8..15] := IV[0..7]
 		end
 	 endgenerate
-//       |   v[12] := v[12] ^ (t mod 2**w)   // Low word of the offset.
-//       |   v[13] := v[13] ^ (t >> w)       // High word.
-//       |   IF f = TRUE THEN                // last block flag?
-//       |   |   v[14] := v[14] ^ 0xFF..FF   // Invert all bits.
-//       |   END IF.
+	// v[12] := v[12] ^ (t mod 2**w)   // Low word of the offset.
+	// v[13] := v[13] ^ (t >> w)       // High word.
+	// IF f = TRUE THEN                // last block flag?
+	// |   v[14] := v[14] ^ 0xFF..FF   // Invert all bits.
+	// END IF.
+	assign v_init_2[12] = v_init[12] ^ t[W-1:0]; // Low word of the offset
+	assign v_init_2[13] = v_init[13] ^ t[2*W-1:W];// High word of the offset
+	assign v_init_2[14] = v_init[14] ^ {W{block_last_i}};
 	assign v_init_2[15] = v_init[15];
-//	assign v_init_2[14] = v_init[14] ^ {W{F_b}};
-	assign v_init_2[14] = v_init[14] ^ {W{1'b1}};
-	assign v_init_2[13] = v_init[13] ^ LL_b[2*W-1:W];// High word of the offset
-	assign v_init_2[12] = v_init[12] ^ LL_b[W-1:0]; // Low word of the offset
+	
 	genvar v_init_2_i;
 	generate
 		for(v_init_2_i=0;v_init_2_i<12; v_init_2_i=v_init_2_i+1) begin : loop_v_init_2_i
@@ -138,7 +158,7 @@ module blake2 #(
 	endgenerate
 	
 
-        // do 12 rounds
+    // do 10(s)/12(b) rounds
 	genvar v_idx;
 	generate
 		for(v_idx = 0; v_idx<16; v_idx=v_idx+1 ) begin : loop_v_idx

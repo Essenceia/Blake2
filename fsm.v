@@ -5,27 +5,27 @@ module byte_size_config(
 	input wire config_v_i,
 	input wire [7:0] data_i,
 
-	output wire [7:0] kk_o,
-	output wire [7:0] nn_o,
-	output wire [7:0] ll_o
+	output wire [7:0]  kk_o,
+	output wire [7:0]  nn_o,
+	output wire [63:0] ll_o
 ); 
 	// configuration
-	parameter CFG_CNT_KK      = 2'd0;
-	parameter CFG_CNT_NN      = 2'd1;
-	parameter CFG_CNT_LL      = 2'd2;
-	parameter CFG_CNT_DEFAULT = 2'd3;
+	parameter CFG_CNT_KK      = 4'd0;
+	parameter CFG_CNT_NN      = 4'd1;
+	parameter CFG_CNT_LL_MIN  = 4'd2;
+	parameter CFG_CNT_LL_MAX  = 4'd10;
 
 	reg       unused_cfg_cnt_q;
-	reg [2:0] cfg_cnt_q; 
-	reg [7:0] kk_q;
-	reg [7:0] nn_q;
-	reg [7:0] ll_q;
+	reg [3:0]  cfg_cnt_q; 
+	reg [7:0]  kk_q;
+	reg [7:0]  nn_q;
+	reg [63:0] ll_q;
 
 	always @(posedge clk) begin
 		if ((~nreset) | (valid_i & ~config_v_i)) begin
 			cfg_cnt_q <= '0;
 		end else begin
-			{ unusued_cfg_cnt_q, cfg_cnt_q } <= cfg_cnt_q + 2'd1;
+			{ unusued_cfg_cnt_q, cfg_cnt_q } <= cfg_cnt_q + 'd1;
 		end
 	end
 
@@ -33,7 +33,7 @@ module byte_size_config(
 		case(cfg_cnt_q) 
 			CFG_CNT_KK: kk_q <= data_i;
 			CFG_CNT_NN: nn_q <= data_i;
-			CFG_CNT_LL: ll_q <= data_i; 
+			default: ll_q <= {ll_q[54:0] , data_i}; 
 		endcase
 	end
 
@@ -96,7 +96,7 @@ module block_data(
 			last_q <= '0;
 		end else if (start_v | last_v) begin
 			start_q <= start_v;
-			last_q  <= last_v;
+			last_q <= last_v;
 		end
 	end
 
@@ -120,9 +120,9 @@ module io_intf(
 	// inner
 	input wire       hash_finished_i,
 
-	output wire [7:0] kk_o,
-	output wire [7:0] nn_o,
-	output wire [7:0] ll_o,
+	output wire [7:0]  kk_o,
+	output wire [7:0]  nn_o,
+	output wire [63:0] ll_o,
 
 	output wire       data_v_o,
 	output wire [7:0] data_o,
