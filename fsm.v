@@ -47,10 +47,11 @@ module block_data(
 	input wire nreset, 
 	input wire valid_i,
 	input wire [1:0] cmd_i,
-	input wire [7:0] data_i,
+	input wire [5:0] data_i,
 
-	output wire         block_v_o,
-	output wire [511:0] block_o,
+	output wire         data_v_o,
+	output wire [7:0]   data_o,
+	output wire [5:0]   data_idx_o,
 	output wire         block_first_o,
 	output wire         block_last_o
 );
@@ -59,20 +60,21 @@ module block_data(
 	parameter CMD_DATA  = 2'd2;
 	parameter CMD_LAST  = 2'd3;
 
-	reg [511:0] data_q;
-	reg [6:0]   cnt_q;
-	reg         unusued_cnt_q;
-	wire        data_v;
-	wire        start_v;
-	reg         start_q;
-	wire        last_v;
-	reg         last_q;
-	wire        conf_v;
+	reg [7:0] data_q;
+	reg [5:0] cnt_q;
+	reg       unusued_cnt_q;
+	wire      data_v;
+	wire      start_v;
+	reg       start_q;
+	wire      last_v;
+	reg       last_q;
+	wire      conf_v;
 
 
 	assign start_v = valid_i & (cmd_i == CMD_START);	
 	assign last_v = valid_i & (cmd_i == CMD_LAST);	
 	assign data_v = valid_i & ~(cmd_i == CMD_CONF); 
+
 	always @(posedge clk) begin
 		if (~nreset | start_v) begin
 			cnt_q <= '0;
@@ -82,8 +84,9 @@ module block_data(
 	end
 
 	always @(posedge clk) begin
+		data_v_q <= data_v;
 		if (data_v) begin
-			data_q <= { data_i, data_q[511:8]};
+			data_q <= data_i;
 		end
 	end
 
@@ -97,29 +100,35 @@ module block_data(
 		end
 	end
 
-	assign block_v_o = cnt_q == 6'd63;
-	assign block_o = data_q;
+	assign data_v_o = data_v_q;
+	assign data_o = data_q;
+	assign data_idx_o = cnt_q;
 	assign block_first_o = start_q;
 	assign block_last_o = last_q; 
 endmodule
 
-module blake2_input_fsm(
+module io_intf(
+	// I/O
 	input wire clk, 
 	input wire nreset, 
 	input wire       valid_i,
 	input wire [1:0] cmd_i,
 	input wire [7:0] data_i,
 
-	output wire finished_o,
+	output wire hash_finished_o,
+
+	// inner
+	input wire       hash_finished_i,
 
 	output wire [7:0] kk_o,
 	output wire [7:0] nn_o,
 	output wire [7:0] ll_o,
 
-	output wire         block_v_o, // block data valid
-	output wire [511:0] block_o,
-	output wire         block_first_o,
-	output wire         block_last_o
+	output wire       data_v_o,
+	output wire [7:0] data_o,
+	output wire [5:0] data_idx_o,
+	output wire       block_first_o,
+	output wire       block_last_o
 );
 	parameter CMD_CONF  = 2'd0;  
 
@@ -142,9 +151,12 @@ module blake2_input_fsm(
 		.cmd_i(cmd_i),
 		.data_i(data_i),
 
-	 	.block_v_o(block_v_o),
-	 	.block_o(block_o),
+	 	.data_v_o(data_v_o),
+	 	.data_o(data_o),
+	 	.data_idx_o(data_idx_o),
 	 	.block_first_o(block_first_o),
 	 	.block_last_o(block_last_o)
 	);
+
+	assign hash_finished_o = hash_finished_i;
 endmodule
