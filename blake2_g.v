@@ -66,7 +66,6 @@ module G #(
 	wire [W-1:0] b0;
 	wire [W-1:0] c0;
 	wire [W-1:0] d0;
-	wire unusued_carry0;
 
 	// v[a] := (v[a] + v[b] + y) mod 2**w
 	adder_3way #(.W(W)) m_add_0(

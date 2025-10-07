@@ -46,7 +46,7 @@ module blake2 #(
 	wire       final_round;
 
 	wire [63:0]  t;	
-	reg  [59:0]  block_idx_q;
+	reg  [57:0]  block_idx_q;
 
 	wire [W-1:0] v_init[15:0];
 	wire [W-1:0] v_init_2[15:0];
@@ -129,7 +129,7 @@ module blake2 #(
 	// Function F
 	//
 	// Calculate t, TODO block index increment
-	assign t = block_last_i ? ll_i: (block_idx_q << BB_clog2);
+	assign t = block_last_i ? ll_i: {block_idx_q, {BB_clog2{1'b0}}};
 	//
 	// Initialize local work vector v[0..15]
 	// v[0..7]  := h[0..7]              // First half from state.
@@ -161,6 +161,13 @@ module blake2 #(
 		
 
     // do 10(s)/12(b) rounds
+    reg unused_g_idx_q;
+    always @(posedge clk) begin
+		// TODO 
+		{unused_g_idx_q, g_idx_q} <= g_idx_q + 'd1;
+	end
+
+	
 	genvar v_idx;
 	generate
 		for(v_idx = 0; v_idx<16; v_idx=v_idx+1 ) begin : loop_v_idx
@@ -191,7 +198,8 @@ module blake2 #(
 	end
 
 	wire [1:0] g_b_idx;
-	assign g_b_idx = g_idx_q[1:0] + g_idx_q[3]; 
+	wire unused_g_b_idx;
+	assign {unused_g_b_idx, g_b_idx} = g_idx_q[1:0] + {2'b0,g_idx_q[2]}; 
 	always @(*) begin
 		case(g_b_idx)
 			0: g_d = v_current[4];
@@ -202,7 +210,8 @@ module blake2 #(
 	end
 
 	wire [1:0] g_c_idx; 
-	assign g_c_idx = g_idx_q + {g_idx_q[3], 1'b0};
+	wire unused_g_c_idx; 
+	assign {unused_g_c_idx,g_c_idx} = g_idx_q + {g_idx_q[2], 1'b0};
 	always @(*) begin
 		case(g_c_idx)
 			0: g_c = v_current[8]; 
@@ -213,7 +222,8 @@ module blake2 #(
 	end
 
 	wire [1:0] g_d_idx; 
-	assign g_d_idx = g_idx_q + {2{g_idx_q}};
+	wire unused_g_d_idx; 
+	assign {unused_g_d_idx,g_d_idx} = g_idx_q + {1'b0,2{g_idx_q[2]}};
 	always @(*) begin
 		case(g_d_idx)
 			0: g_d = v_current[12];
@@ -240,16 +250,22 @@ module blake2 #(
 		end
 	endgenerate
 
+	wire [3:0] g_x_idx, g_y_idx;
 	always @(*) begin
 		case(g_idx_q)
-			0: {g_x, g_y} <= {sigma_row_elems[0], sigma_row_elems[1]};
-			1: {g_x, g_y} <= {sigma_row_elems[2], sigma_row_elems[2]};
-			2: {g_x, g_y} <= {sigma_row_elems[4], sigma_row_elems[5]};
-			3: {g_x, g_y} <= {sigma_row_elems[6], sigma_row_elems[7]};
-			4: {g_x, g_y} <= {sigma_row_elems[8], sigma_row_elems[9]};
-			5: {g_x, g_y} <= {sigma_row_elems[10], sigma_row_elems[11]};
-			6: {g_x, g_y} <= {sigma_row_elems[12], sigma_row_elems[13]};
-			7: {g_x, g_y} <= {sigma_row_elems[14], sigma_row_elems[15]};	
+			0: {g_x_idx, g_y_idx} <= {sigma_row_elems[0], sigma_row_elems[1]};
+			1: {g_x_idx, g_y_idx} <= {sigma_row_elems[2], sigma_row_elems[2]};
+			2: {g_x_idx, g_y_idx} <= {sigma_row_elems[4], sigma_row_elems[5]};
+			3: {g_x_idx, g_y_idx} <= {sigma_row_elems[6], sigma_row_elems[7]};
+			4: {g_x_idx, g_y_idx} <= {sigma_row_elems[8], sigma_row_elems[9]};
+			5: {g_x_idx, g_y_idx} <= {sigma_row_elems[10], sigma_row_elems[11]};
+			6: {g_x_idx, g_y_idx} <= {sigma_row_elems[12], sigma_row_elems[13]};
+			7: {g_x_idx, g_y_idx} <= {sigma_row_elems[14], sigma_row_elems[15]};
+		endcase
+	end
+	assign g_x = v_current[g_x_idx];
+	assign g_y = v_current[g_y_idx];
+	
 	wire [W-1:0] a,b,c,d; 
 	
 	G #(.W(W), .R1(R1), .R2(R2), .R3(R3), .R4(R4)) 
