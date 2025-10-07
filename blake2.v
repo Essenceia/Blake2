@@ -30,8 +30,8 @@ module blake2 #(
 	input wire          block_first_i,               
 	input wire          block_last_i,               
 	
-	input               valid_i,	
-	input [(W*16)-1:0]  d_i,
+	input        data_v_i,	
+	input [7:0]  data_i,
 	
 	output              valid_o,
 	output [(W*8) -1:0] h_o
@@ -42,7 +42,6 @@ module blake2 #(
 	reg  [3:0] round_q;
 	wire [3:0] round_next;
 	wire       round_en;
-	wire       v_en;
 	wire       final_round;
 
 	wire [63:0]  t;	
@@ -50,26 +49,18 @@ module blake2 #(
 
 	wire [W-1:0] v_init[15:0];
 	wire [W-1:0] v_init_2[15:0];
-	wire [W-1:0] v_next[15:0];
 	wire [W-1:0] v_current[15:0];
 	reg  [W-1:0] v_q[15:0];
-	wire [W-1:0] v_p0[15:0]; // part 0
-	wire [W-1:0] v_p1[15:0]; // part 1
-	wire [W-1:0] v_p2[15:0]; // part 2
-	wire [W-1:0] v_p3[15:0]; // part 3
-	wire [1:0]   unused_v_add_carry_p0[15:0]; // part 0
-	wire [1:0]   unused_v_add_carry_p1[15:0]; // part 1
-	wire [1:0]   unused_v_add_carry_p2[15:0]; // part 2
-	wire [1:0]   unused_v_add_carry_p3[15:0]; // part 3
+	wire [W-1:0] h_next[7:0];
+	reg  [W-1:0] h_q[7:0];
 	
-	reg  [W-1:0] m_q[15:0]; // stay the same for the entire periode 
-	wire [W-1:0] m_current[15:0];
-	wire [W-1:0] m_prime[15:0]; // m[s[i]]
+	reg  [W*16-1:0] m_q;
+	wire [W-1:0] m_matrix[15:0];
 		 
 	wire [W-1:0] IV[0:7];
+	wire [W-1:0] f_h[0:7];
 	wire [W-1:0] h_init[0:7];
 	wire [63:0]  SIGMA[9:0];
-	wire [3:0]   sigma_sel;
 	wire [63:0]  sigma_row; // currently selected sigma row
 	wire [3:0]   sigma_row_elems[15:0]; // currently selected sigma row
 	
@@ -107,6 +98,49 @@ module blake2 #(
 		end
 	endgenerate
 
+	// fsm
+	reg first_block_q; 
+	reg last_block_q; 
+	reg fsm_q;
+	wire f_finished;
+	reg res_cnt_q;
+
+	localparam S_IDLE = 'd0;
+	localparam S_WAIT_DATA = 'd1;
+	localparam S_F = 'd2;
+	localparam S_RES = 'd3;
+
+	always @(posedge clk)
+		if (~nreset) begin
+			first_block_q <= 1'b0;
+			last_block_q <= 1'b0;
+			fsm_q <= S_IDLE;
+		end else begin
+			case (fsm_q) 
+				S_IDLE: fsm_q <= data_v_i ? S_WAIT_DATA: S_IDLE;
+				S_WAIT_DATA: fsm_q <= (data_v_i & (data_idx_i == 6'd63))? S_F : S_WAIT_DATA;
+				S_F: fsm_q <= f_finished ? last_block_q ? S_RES : S_WAIT_DATA : S_F;
+				S_RES: fsm_q <= res_cnt_q == 'd31 ? S_IDLE: S_RES;
+			endcase
+	end
+
+	always @(posedge clk)
+		case (fsm_q)
+			S_WAIT_DATA: begin
+				first_block_q <= data_v_i ? block_first_i : first_block_q;
+				last_block_q <= data_v_i ? block_last_i : last_block_q;
+			end
+			S_F: begin
+				first_block_q <= first_block_q;
+				last_block_q <= last_block_q;
+			end
+			default: begin
+				first_block_q <= 1'b0;
+				last_block_q <= 1'b0;
+			end
+		endcase
+	end
+
 	//-------------
 	//
 	// Init
@@ -129,16 +163,17 @@ module blake2 #(
 	// Function F
 	//
 	// Calculate t, TODO block index increment
-	assign t = block_last_i ? ll_i: {block_idx_q, {BB_clog2{1'b0}}};
+	assign t = last_block_q ? ll_i: {block_idx_q, {BB_clog2{1'b0}}};
 	//
 	// Initialize local work vector v[0..15]
 	// v[0..7]  := h[0..7]              // First half from state.
 	// v[8..15] := IV[0..7]            // Second half from IV.
-	genvar v_init_i;
+	genvar i_v_init;
 	generate
-		for(v_init_i=0;v_init_i<8;v_init_i=v_init_i+1) begin : loop_v_init
-			 assign v_init[v_init_i]   = h_init[v_init_i]; // v[0..7] := h[0..7]
-			 assign v_init[v_init_i+8] = IV[v_init_i];     // v[8..15] := IV[0..7]
+		for(i_v_init=0;i_v_init<8;i_v_init=i_v_init+1) begin : loop_v_init
+			 assign f_h[i_v_init]      = first_block_q ? h_init[i_v_init]: h_q[i_v_init]; // v[0..7] := h[0..7]
+			 assign v_init[i_v_init]   = f_h; // v[0..7] := h[0..7]
+			 assign v_init[i_v_init+8] = IV[i_v_init];     // v[8..15] := IV[0..7]
 		end
 	 endgenerate
 	// v[12] := v[12] ^ (t mod 2**w)   // Low word of the offset.
@@ -148,7 +183,7 @@ module blake2 #(
 	// END IF.
 	assign v_init_2[12] = v_init[12] ^ t[W-1:0]; // Low word of the offset
 	assign v_init_2[13] = v_init[13] ^ t[2*W-1:W];// High word of the offset
-	assign v_init_2[14] = v_init[14] ^ {W{block_last_i}};
+	assign v_init_2[14] = v_init[14] ^ {W{last_block_q}};
 	assign v_init_2[15] = v_init[15];
 	genvar v_init_2_i;
 	generate
@@ -187,7 +222,7 @@ module blake2 #(
 	// v := G( v, 2, 7,  8, 13, m[s[12]], m[s[13]] ) 6
 	// v := G( v, 3, 4,  9, 14, m[s[14]], m[s[15]] ) 7
 
-	wire [W-1:0] g_a, g_b, g_c, g_d, g_x, g_y;
+	reg [W-1:0] g_a, g_b, g_c, g_d, g_x, g_y;
 	always @(*) begin 
 		case(g_idx_q[1:0])
 			0: g_a = v_current[0];
@@ -202,10 +237,10 @@ module blake2 #(
 	assign {unused_g_b_idx, g_b_idx} = g_idx_q[1:0] + {2'b0,g_idx_q[2]}; 
 	always @(*) begin
 		case(g_b_idx)
-			0: g_d = v_current[4];
-			1: g_d = v_current[5];
-			2: g_d = v_current[6];
-			3: g_d = v_current[7];
+			0: g_b = v_current[4];
+			1: g_b = v_current[5];
+			2: g_b = v_current[6];
+			3: g_b = v_current[7];
 		endcase
 	end
 
@@ -223,7 +258,7 @@ module blake2 #(
 
 	wire [1:0] g_d_idx; 
 	wire unused_g_d_idx; 
-	assign {unused_g_d_idx,g_d_idx} = g_idx_q + {1'b0,2{g_idx_q[2]}};
+	assign {unused_g_d_idx,g_d_idx} = g_idx_q + {1'b0,{2{g_idx_q[2]}}};
 	always @(*) begin
 		case(g_d_idx)
 			0: g_d = v_current[12];
@@ -250,21 +285,21 @@ module blake2 #(
 		end
 	endgenerate
 
-	wire [3:0] g_x_idx, g_y_idx;
+	reg [3:0] g_x_idx, g_y_idx;
 	always @(*) begin
 		case(g_idx_q)
-			0: {g_x_idx, g_y_idx} <= {sigma_row_elems[0], sigma_row_elems[1]};
-			1: {g_x_idx, g_y_idx} <= {sigma_row_elems[2], sigma_row_elems[2]};
-			2: {g_x_idx, g_y_idx} <= {sigma_row_elems[4], sigma_row_elems[5]};
-			3: {g_x_idx, g_y_idx} <= {sigma_row_elems[6], sigma_row_elems[7]};
-			4: {g_x_idx, g_y_idx} <= {sigma_row_elems[8], sigma_row_elems[9]};
-			5: {g_x_idx, g_y_idx} <= {sigma_row_elems[10], sigma_row_elems[11]};
-			6: {g_x_idx, g_y_idx} <= {sigma_row_elems[12], sigma_row_elems[13]};
-			7: {g_x_idx, g_y_idx} <= {sigma_row_elems[14], sigma_row_elems[15]};
+			0: {g_x_idx, g_y_idx} = {sigma_row_elems[0], sigma_row_elems[1]};
+			1: {g_x_idx, g_y_idx} = {sigma_row_elems[2], sigma_row_elems[2]};
+			2: {g_x_idx, g_y_idx} = {sigma_row_elems[4], sigma_row_elems[5]};
+			3: {g_x_idx, g_y_idx} = {sigma_row_elems[6], sigma_row_elems[7]};
+			4: {g_x_idx, g_y_idx} = {sigma_row_elems[8], sigma_row_elems[9]};
+			5: {g_x_idx, g_y_idx} = {sigma_row_elems[10], sigma_row_elems[11]};
+			6: {g_x_idx, g_y_idx} = {sigma_row_elems[12], sigma_row_elems[13]};
+			7: {g_x_idx, g_y_idx} = {sigma_row_elems[14], sigma_row_elems[15]};
 		endcase
 	end
-	assign g_x = v_current[g_x_idx];
-	assign g_y = v_current[g_y_idx];
+	assign g_x = m_matrix[g_x_idx];
+	assign g_y = m_matrix[g_y_idx];
 	
 	wire [W-1:0] a,b,c,d; 
 	
@@ -318,91 +353,26 @@ module blake2 #(
 	end
 
 
-	
+
+	always @(posedge clk)
+	begin
+		if(data_v_i)
+			m_q <= {data_i, m_q[511:8]};
+	end
+
 	genvar m_q_i;
 	generate
 		for(m_q_i=0; m_q_i<16; m_q_i=m_q_i+1 ) begin : loop_m_q_i
-			// ff
-			always @(posedge clk)
-			begin
-				if (valid_i)
-					m_q[m_q_i] <= m_current[m_q_i];
-			end
-			// m_current ( stand in for next )
-			assign m_current[m_q_i] = valid_i ? d_i[(W*m_q_i)+(W-1): W*m_q_i ] : m_q[m_q_i];
+			assign m_matrix[m_q_i] = m_q[m_q_i];
 		end
 	endgenerate
 		
-	// selecting m prime, re-ordered and indexed into by sigma_row_elems
-	// this is the where this get's expensive in hw
-	//
-	// m_prime[i] = m[s[i]]
-	genvar i;
-	generate
-		for ( i = 0; i < 16; i=i+1 ) begin : loop_m_prime_elem
-			assign m_prime[i] = 
-						{W{ sigma_row_elems[i] == 4'd0  }} & m_current[0]
-					  | {W{ sigma_row_elems[i] == 4'd1  }} & m_current[1]
-					  | {W{ sigma_row_elems[i] == 4'd2  }} & m_current[2]
-					  | {W{ sigma_row_elems[i] == 4'd3  }} & m_current[3]
-					  | {W{ sigma_row_elems[i] == 4'd4  }} & m_current[4]
-					  | {W{ sigma_row_elems[i] == 4'd5  }} & m_current[5]
-					  | {W{ sigma_row_elems[i] == 4'd6  }} & m_current[6]
-					  | {W{ sigma_row_elems[i] == 4'd7  }} & m_current[7]
-					  | {W{ sigma_row_elems[i] == 4'd8  }} & m_current[8]
-					  | {W{ sigma_row_elems[i] == 4'd9  }} & m_current[9]
-					  | {W{ sigma_row_elems[i] == 4'd10 }} & m_current[10]
-					  | {W{ sigma_row_elems[i] == 4'd11 }} & m_current[11]
-					  | {W{ sigma_row_elems[i] == 4'd12 }} & m_current[12]
-					  | {W{ sigma_row_elems[i] == 4'd13 }} & m_current[13]
-					  | {W{ sigma_row_elems[i] == 4'd14 }} & m_current[14]
-					  | {W{ sigma_row_elems[i] == 4'd15 }} & m_current[15]
-					  ;
-		end
-	endgenerate
-//      |   // Cryptographic mixing
-//      |   FOR i = 0 TO r - 1 DO           // Ten or twelve rounds.
-//      |   |
-//      |   |   // Message word selection permutation for this round.
-//      |   |   s[0..15] := SIGMA[i mod 10][0..15]
-//      |   |
-//      |   |   v := G( v, 0, 4,  8, 12, m[s[ 0]], m[s[ 1]] )
-//      |   |   v := G( v, 1, 5,  9, 13, m[s[ 2]], m[s[ 3]] )
-//      |   |   v := G( v, 2, 6, 10, 14, m[s[ 4]], m[s[ 5]] )
-//      |   |   v := G( v, 3, 7, 11, 15, m[s[ 6]], m[s[ 7]] )
-//      |   |
-//      |   |   v := G( v, 0, 5, 10, 15, m[s[ 8]], m[s[ 9]] )
-//      |   |   v := G( v, 1, 6, 11, 12, m[s[10]], m[s[11]] )
-//      |   |   v := G( v, 2, 7,  8, 13, m[s[12]], m[s[13]] )
-//      |   |   v := G( v, 3, 4,  9, 14, m[s[14]], m[s[15]] )
-//      |   |
-//      |   END FOR
-// 
-//     	FUNCTION G( v[0..15], a, b, c, d, x, y )
-//      |
-//      |   v[a] := (v[a] + v[b] + x) mod 2**w
-//      |   v[d] := (v[d] ^ v[a]) >>> R1
-//      |   v[c] := (v[c] + v[d])     mod 2**w
-//      |   v[b] := (v[b] ^ v[c]) >>> R2
-//      |   v[a] := (v[a] + v[b] + y) mod 2**w
-//      |   v[d] := (v[d] ^ v[a]) >>> R3
-//      |   v[c] := (v[c] + v[d])     mod 2**w
-//      |   v[b] := (v[b] ^ v[c]) >>> R4
-//      |
-//      |   RETURN v[0..15]
-//      |
-//      END FUNCTION.
-
-//      |   FOR i = 0 TO 7 DO               // XOR the two halves.
-//      |   |   h[i] := h[i] ^ v[i] ^ v[i + 8]
-//      |   END FOR.
-//      |
-//      |   RETURN h[0..7]                  // New state.
-
-	// calculate output h_o value
+	// FOR i = 0 TO 7 DO               // XOR the two halves.
+	// |   h[i] := h[i] ^ v[i] ^ v[i + 8]
+	// END FOR.
 	generate
 		for(h_idx=0; h_idx<8; h_idx=h_idx+1 ) begin : loop_h_o
-			assign h_o[(h_idx+1)*W-1:h_idx*W] = h_init[h_idx] ^ v_current[h_idx] ^ v_current[h_idx+8];
+			assign h_next[(h_idx+1)*W-1:h_idx*W] = f_h[h_idx] ^ v_q[h_idx] ^ v_q[h_idx+8];
 		end
 	endgenerate
 	
