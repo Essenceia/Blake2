@@ -38,9 +38,10 @@ module blake2 #(
 	);
 	localparam BB_clog2 = $clog2(BB); 
 	 
-	reg  [3:0] fsm_q;
-	wire [3:0] fsm_next;
-	wire       fsm_en;
+	reg  [2:0] g_idx_q; // G function idx, sub-round
+	reg  [3:0] round_q;
+	wire [3:0] round_next;
+	wire       round_en;
 	wire       v_en;
 	wire       final_round;
 
@@ -120,7 +121,7 @@ module blake2 #(
 	endgenerate
 	// Parameter block p[0]
 	// h[0] := h[0] ^ 0x01010000 ^ (kk << 8) ^ nn
-	assign h_init[0] = IV[0] ^ {{W-32{1'b0}},32'h01010000} ^ {{W-16{1'b0}},k_i,{8{1'b0}}} ^ {{W-8{1'b0}} , nn_i};
+	assign h_init[0] = IV[0] ^ {{W-32{1'b0}},32'h01010000} ^ {{W-16{1'b0}},kk_i,{8{1'b0}}} ^ {{W-8{1'b0}} , nn_i};
 	
 
 	//----------
@@ -149,60 +150,158 @@ module blake2 #(
 	assign v_init_2[13] = v_init[13] ^ t[2*W-1:W];// High word of the offset
 	assign v_init_2[14] = v_init[14] ^ {W{block_last_i}};
 	assign v_init_2[15] = v_init[15];
-	
 	genvar v_init_2_i;
 	generate
 		for(v_init_2_i=0;v_init_2_i<12; v_init_2_i=v_init_2_i+1) begin : loop_v_init_2_i
 			assign v_init_2[v_init_2_i] = v_init[v_init_2_i];
 		end
 	endgenerate
-	
+
+
+		
 
     // do 10(s)/12(b) rounds
 	genvar v_idx;
 	generate
 		for(v_idx = 0; v_idx<16; v_idx=v_idx+1 ) begin : loop_v_idx
-			assign v_current[v_idx] = valid_i ? v_init_2[v_idx] : v_q[v_idx];
-				
-			assign v_next[v_idx] = v_p3[v_idx];
-			always @(posedge clk) 
-			begin
-				if ( v_en )
-					v_q[v_idx] <= v_next[v_idx];
-			end
+			assign v_current[v_idx] = ((round_q == 'd0) & (g_idx_q < 'd4))? v_init_2[v_idx] : v_q[v_idx];
 		end
 	endgenerate
-	// TODO : modify list block flag
-	//
-	// modulo can only be done with a power of 2 on the right hand side
-	// 10 : 01010, 11 : 01011, 12 : 01100
-	//      00000,      00001       00010
-	wire fsm_ge10;
-	wire fsm_eq12;
-	assign fsm_ge10 = fsm_q[3] & fsm_q[1];
-	assign fsm_eq12 = fsm_q[3] & fsm_q[2];
-	assign sigma_sel = fsm_ge10 ? { 3'b0 , fsm_q[0] }
-						  : fsm_eq12 ? 4'b0010 : fsm_q;
 
-	// select current sigma row
-	// from rfc : "For BLAKE2b, the two extra permutations for rounds 
-	// 10 and 11 are SIGMA[10..11] = SIGMA[0..1]" 
-	assign sigma_row  = {64{ sigma_sel == 4'd0 }} & SIGMA[0]
-			  | {64{ sigma_sel == 4'd1 }} & SIGMA[1]
-			  | {64{ sigma_sel == 4'd2 }} & SIGMA[2]
-			  | {64{ sigma_sel == 4'd3 }} & SIGMA[3]
-			  | {64{ sigma_sel == 4'd4 }} & SIGMA[4]
-			  | {64{ sigma_sel == 4'd5 }} & SIGMA[5]
-			  | {64{ sigma_sel == 4'd6 }} & SIGMA[6]
-			  | {64{ sigma_sel == 4'd7 }} & SIGMA[7]
-			  | {64{ sigma_sel == 4'd8 }} & SIGMA[8]
-			  | {64{ sigma_sel == 4'd9 }} & SIGMA[9];
+	// write back v_q
+	//                                               g_idx_q
+	// v := G( v, 0, 4,  8, 12, m[s[ 0]], m[s[ 1]] ) 0
+	// v := G( v, 1, 5,  9, 13, m[s[ 2]], m[s[ 3]] ) 1
+	// v := G( v, 2, 6, 10, 14, m[s[ 4]], m[s[ 5]] ) 2
+	// v := G( v, 3, 7, 11, 15, m[s[ 6]], m[s[ 7]] ) 3
+	//
+	// v := G( v, 0, 5, 10, 15, m[s[ 8]], m[s[ 9]] ) 4
+	// v := G( v, 1, 6, 11, 12, m[s[10]], m[s[11]] ) 5
+	// v := G( v, 2, 7,  8, 13, m[s[12]], m[s[13]] ) 6
+	// v := G( v, 3, 4,  9, 14, m[s[14]], m[s[15]] ) 7
+
+	wire [W-1:0] g_a, g_b, g_c, g_d, g_x, g_y;
+	always @(*) begin 
+		case(g_idx_q[1:0])
+			0: g_a = v_current[0];
+			1: g_a = v_current[1];
+			2: g_a = v_current[2];
+			3: g_a = v_current[3];
+		endcase
+	end
+
+	wire [1:0] g_b_idx;
+	assign g_b_idx = g_idx_q[1:0] + g_idx_q[3]; 
+	always @(*) begin
+		case(g_b_idx)
+			0: g_d = v_current[4];
+			1: g_d = v_current[5];
+			2: g_d = v_current[6];
+			3: g_d = v_current[7];
+		endcase
+	end
+
+	wire [1:0] g_c_idx; 
+	assign g_c_idx = g_idx_q + {g_idx_q[3], 1'b0};
+	always @(*) begin
+		case(g_c_idx)
+			0: g_c = v_current[8]; 
+			1: g_c = v_current[9]; 
+			2: g_c = v_current[10]; 
+			3: g_c = v_current[11]; 
+ 		endcase
+	end
+
+	wire [1:0] g_d_idx; 
+	assign g_d_idx = g_idx_q + {2{g_idx_q}};
+	always @(*) begin
+		case(g_d_idx)
+			0: g_d = v_current[12];
+			1: g_d = v_current[13];
+			2: g_d = v_current[14];
+			3: g_d = v_current[15];
+		endcase
+	end
+
+	assign sigma_row  = {64{ round_q == 4'd0 }} & SIGMA[0]
+			 		  | {64{ round_q == 4'd1 }} & SIGMA[1]
+			 		  | {64{ round_q == 4'd2 }} & SIGMA[2]
+			 		  | {64{ round_q == 4'd3 }} & SIGMA[3]
+			 		  | {64{ round_q == 4'd4 }} & SIGMA[4]
+			 		  | {64{ round_q == 4'd5 }} & SIGMA[5]
+			 		  | {64{ round_q == 4'd6 }} & SIGMA[6]
+			 		  | {64{ round_q == 4'd7 }} & SIGMA[7]
+			 		  | {64{ round_q == 4'd8 }} & SIGMA[8]
+			 		  | {64{ round_q == 4'd9 }} & SIGMA[9];
 	genvar j;
 	generate
 		for( j = 0; j < 16; j=j+1 ) begin : loop_sigma_elem
 			assign sigma_row_elems[j] = sigma_row[j*4+3:j*4];
 		end
 	endgenerate
+
+	always @(*) begin
+		case(g_idx_q)
+			0: {g_x, g_y} <= {sigma_row_elems[0], sigma_row_elems[1]};
+			1: {g_x, g_y} <= {sigma_row_elems[2], sigma_row_elems[2]};
+			2: {g_x, g_y} <= {sigma_row_elems[4], sigma_row_elems[5]};
+			3: {g_x, g_y} <= {sigma_row_elems[6], sigma_row_elems[7]};
+			4: {g_x, g_y} <= {sigma_row_elems[8], sigma_row_elems[9]};
+			5: {g_x, g_y} <= {sigma_row_elems[10], sigma_row_elems[11]};
+			6: {g_x, g_y} <= {sigma_row_elems[12], sigma_row_elems[13]};
+			7: {g_x, g_y} <= {sigma_row_elems[14], sigma_row_elems[15]};	
+	wire [W-1:0] a,b,c,d; 
+	
+	G #(.W(W), .R1(R1), .R2(R2), .R3(R3), .R4(R4)) 
+	m_g(
+		.a_i(g_a),
+		.b_i(g_b),
+		.c_i(g_c),
+		.d_i(g_d),
+		.x_i(g_x),
+		.y_i(g_y),
+		.a_o(a),
+		.b_o(b),
+		.c_o(c),
+		.d_o(d)
+	);
+
+	always @(posedge clk) begin
+		if ((g_idx_q == 'd0) | (g_idx_q == 'd4))
+			v_q[0] <= a;
+		if ((g_idx_q == 'd1) | (g_idx_q == 'd5))
+			v_q[1] <= a;	
+		if ((g_idx_q == 'd2) | (g_idx_q == 'd6))
+			v_q[2] <= a;		
+		if ((g_idx_q == 'd3) | (g_idx_q == 'd7))
+			v_q[3] <= a;
+		if ((g_idx_q == 'd0) | (g_idx_q == 'd7))
+			v_q[4] <= b;	
+		if ((g_idx_q == 'd1) | (g_idx_q == 'd4))
+			v_q[5] <= b;	
+		if ((g_idx_q == 'd2) | (g_idx_q == 'd5))
+			v_q[6] <= b;	
+		if ((g_idx_q == 'd3) | (g_idx_q == 'd6))
+			v_q[7] <= b;	
+		if ((g_idx_q == 'd0) | (g_idx_q == 'd6))
+			v_q[8] <= c;	
+		if ((g_idx_q == 'd1) | (g_idx_q == 'd7))
+			v_q[9] <= c;	
+		if ((g_idx_q == 'd2) | (g_idx_q == 'd4))
+			v_q[10] <= c;	
+		if ((g_idx_q == 'd3) | (g_idx_q == 'd5))
+			v_q[11] <= c;			
+		if ((g_idx_q == 'd0) | (g_idx_q == 'd5))
+			v_q[12] <= d;	
+		if ((g_idx_q == 'd1) | (g_idx_q == 'd6))
+			v_q[13] <= d;	
+		if ((g_idx_q == 'd2) | (g_idx_q == 'd7))
+			v_q[14] <= d;	
+		if ((g_idx_q == 'd3) | (g_idx_q == 'd4))
+			v_q[15] <= d;		
+	end
+
+
 	
 	genvar m_q_i;
 	generate
@@ -278,115 +377,6 @@ module blake2 #(
 //      |
 //      END FUNCTION.
 
-	genvar p0_idx;
-// There is a constant gap between the values of a, b, c and d : 
-//
-//                   G( v, a, b,  c,  d,    x,     y)         p0_idx
-//      |   |   v := G( v, 0, 4,  8, 12, m[s[ 0]], m[s[ 1]] ) 0
-//      |   |   v := G( v, 1, 5,  9, 13, m[s[ 2]], m[s[ 3]] ) 1
-//      |   |   v := G( v, 2, 6, 10, 14, m[s[ 4]], m[s[ 5]] ) 2
-//      |   |   v := G( v, 3, 7, 11, 15, m[s[ 6]], m[s[ 7]] ) 3
-	generate 
-		for(p0_idx=0; p0_idx<4; p0_idx=p0_idx+1 ) begin : loop_g_v_part0
-			localparam a = p0_idx;     // 0,  1,  2,  3
-			localparam b = p0_idx + 4; // 4,  5,  6,  7
-			localparam c = p0_idx + 8; // 8,  9,  10, 11
-			localparam d = p0_idx + 12;// 12, 13, 14, 15
-			localparam x = p0_idx*2;   // 0,  2,  4,  6
-			localparam y = p0_idx*2+1; // 1,  3,  5,  7
-			// Part 0
-			// v[a] := (v[a] + v[b] + x) mod 2**w
-			assign { unused_v_add_carry_p0[a], v_p0[a] }= v_current[a] + v_current[b] + m_prime[x];
-			// v[d] := (v[d] ^ v[a]) >>> R1
-			right_rot #(R1 , W) rot_p0_r1
-			(
-				.data_i((v_current[d] ^ v_p0[a])),
-				.data_o(v_p0[d])
-			);
-			// v[c] := (v[c] + v[d])     mod 2**w
-			assign { unused_v_add_carry_p0[c] , v_p0[c] } = v_current[c] + v_p0[d];
-			// v[b] := (v[b] ^ v[c]) >>> R2
-			right_rot #( R2, W) rot_p0_r2
-			(
-				.data_i((v_current[b] ^ v_p0[c])),
-				.data_o(v_p0[b])
-			);
-			// Part 1
-			// v[a] := (v[a] + v[b] + y) mod 2**w
-			addder_3way #(.W(W)) add3_p0_2(
-				.x0_i(v_p0[a]),
-				.x1_i(v_p0[b]),
-				.x2_i(m_prime[y]),
-				.y_o(v_p1[a])
-			);
-	
-			// v[d] := (v[d] ^ v[a]) >>> R3
-			right_rot #(R3, W ) rot_p1_r3
-			(
-				.data_i((v_p0[d] ^ v_p1[a])),
-				.data_o(v_p1[d])
-			);
-			// v[c] := (v[c] + v[d])     mod 2**w
-			assign { unused_v_add_carry_p1[c], v_p1[c] } = v_p0[c] + v_p1[d];
-			// v[b] := (v[b] ^ v[c]) >>> R4
-			right_rot #( R4, W ) rot_p1_r4
-			(
-				.data_i((v_p0[b] ^ v_p1[c])),
-				.data_o(v_p1[b])
-			);
-		end
-	endgenerate
-	genvar p2_idx;
-	//          v, a, b, c,   d,     x   , y  
-	//  v := G( v, 0, 5, 10, 15, m[s[ 8]], m[s[ 9]] )
-	//  v := G( v, 1, 6, 11, 12, m[s[10]], m[s[11]] )
-	//  v := G( v, 2, 7,  8, 13, m[s[12]], m[s[13]] )
-	//  v := G( v, 3, 4,  9, 14, m[s[14]], m[s[15]] )
-	generate 
-		for(p2_idx=0; p2_idx<4; p2_idx=p2_idx+1) begin : loop_g_v_part2
-			localparam a = p2_idx;
-			localparam b = 4  + ((p2_idx + 1) % 4);//  5   6,  7,  4
-			localparam c = 8  + ((p2_idx + 2) % 4);// 10, 11,  8,  9
-			localparam d = 12 + ((p2_idx + 3) % 4);// 15, 12, 13, 14
-			localparam x = (p2_idx*2) + 8; // 8, 10, 12, 14
-			localparam y = (p2_idx*2) + 9; // 9, 11, 13, 15
-			// Part 2
-			// v[a] := (v[a] + v[b] + x) mod 2**w
-			assign { unused_v_add_carry_p2[a], v_p2[a] } = v_p1[a] + v_p1[b] + m_prime[x];
-			// v[d] := (v[d] ^ v[a]) >>> R1
-			right_rot #(R1 , W) rot_p2_r1
-			(
-				.data_i((v_p1[d] ^ v_p2[a])),
-				.data_o(v_p2[d])
-			);
-			// v[c] := (v[c] + v[d])     mod 2**w
-			assign { unused_v_add_carry_p2[c], v_p2[c] } = v_p1[c] + v_p2[d];
-			// v[b] := (v[b] ^ v[c]) >>> R2
-			right_rot #( R2, W) rot_p2_r2
-			(
-				.data_i((v_p1[b] ^ v_p2[c])),
-				.data_o(v_p2[b])
-			);
-			// Part 3
-			// v[a] := (v[a] + v[b] + y) mod 2**w
-			assign { unused_v_add_carry_p3[a], v_p3[a] } = v_p2[a] + v_p2[b] + m_prime[y];
-			// v[d] := (v[d] ^ v[a]) >>> R3
-			right_rot #(R3, W ) rot_p3_r3
-			(
-				.data_i((v_p2[d] ^ v_p3[a])),
-				.data_o(v_p3[d])
-			);
-			// v[c] := (v[c] + v[d])     mod 2**w
-			assign { unused_v_add_carry_p3[c], v_p3[c] } = v_p2[c] + v_p3[d];
-			// v[b] := (v[b] ^ v[c]) >>> R4
-			right_rot #( R4, W ) rot_p3_r4
-			(
-				.data_i((v_p2[b] ^ v_p3[c])),
-				.data_o(v_p3[b])
-			);
-		end
-	endgenerate
-	
 //      |   FOR i = 0 TO 7 DO               // XOR the two halves.
 //      |   |   h[i] := h[i] ^ v[i] ^ v[i + 8]
 //      |   END FOR.
@@ -406,17 +396,17 @@ module blake2 #(
 	//                           fr
 	always @(posedge clk)
 	begin
-		if(~nreset) begin
-			fsm_q <= 4'b0000;
+		if(~nreset | final_round) begin
+			round_q <= 4'b0000;
 		end
-		else if(fsm_en) begin
-			fsm_q <= fsm_next;
+		else if(round_en) begin
+			round_q <= round_next;
 		end
 	end
-	assign fsm_en   = valid_i | |(fsm_q); 
-	assign fsm_next = final_round ? 4'b0000 : fsm_q + 4'b0001;
+	assign round_en   = valid_i | |(round_q); 
+	assign round_next = round_q + {3'd0, g_idx_q == 3'd7};
 	// output is enabled ( valid )
-	assign v_en = fsm_en & ~final_round;
-	assign final_round = ( fsm_q == R );
+	assign v_en = round_en & ~final_round;
+	assign final_round = ( round_q == R );
 	assign valid_o     = final_round;
 endmodule

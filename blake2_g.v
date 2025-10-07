@@ -11,7 +11,7 @@ module right_rot #(
 	assign data_o[W-1:0] = { data_i[ROT_I-1:0], data_i[W-1:ROT_I]};
 endmodule
 
-module addder_3way #(
+module adder_3way #(
 	parameter W=64
 	)
 	(
@@ -45,10 +45,6 @@ endmodule
 //      END FUNCTION.
 module G #(
 	parameter W=32,
-	parameter a,
-	parameter b,
-	parameter c,
-	parameter d,
 	parameter R1,
 	parameter R2,
 	parameter R3,
@@ -70,10 +66,10 @@ module G #(
 	wire [W-1:0] b0;
 	wire [W-1:0] c0;
 	wire [W-1:0] d0;
-	wire unusued_carry0, unusued_carry0;
+	wire unusued_carry0;
 
 	// v[a] := (v[a] + v[b] + y) mod 2**w
-	addder_3way #(.W(W)) m_add_0(
+	adder_3way #(.W(W)) m_add_0(
 		.x0_i(a_i),
 		.x1_i(b_i),
 		.x2_i(x_i),
@@ -99,7 +95,7 @@ module G #(
 	(
 		.x0_i(a0),
 		.x1_i(b0),
-		.x2_i(y),
+		.x2_i(y_i),
 		.y_o(a_o)
 	);
 	// v[d] := (v[d] ^ v[a]) >>> R3
