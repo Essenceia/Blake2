@@ -108,7 +108,8 @@ module blake2 #(
 	localparam S_IDLE = 'd0;
 	localparam S_WAIT_DATA = 'd1;
 	localparam S_F = 'd2;
-	localparam S_RES = 'd3;
+	localparam S_F_END = 'd3; // write back h, save on mux on path to write back v to h
+	localparam S_RES = 'd4;
 
 	always @(posedge clk)
 		if (~nreset) begin
@@ -119,7 +120,8 @@ module blake2 #(
 			case (fsm_q) 
 				S_IDLE: fsm_q <= data_v_i ? S_WAIT_DATA: S_IDLE;
 				S_WAIT_DATA: fsm_q <= (data_v_i & (data_idx_i == 6'd63))? S_F : S_WAIT_DATA;
-				S_F: fsm_q <= f_finished ? last_block_q ? S_RES : S_WAIT_DATA : S_F;
+				S_F: fsm_q <= f_finished ? S_F_END : S_F;
+				S_F_END: fsm_q <= last_block_q ? S_RES : S_WAIT_DATA;
 				S_RES: fsm_q <= res_cnt_q == 'd31 ? S_IDLE: S_RES;
 			endcase
 	end
@@ -130,7 +132,8 @@ module blake2 #(
 				first_block_q <= data_v_i ? block_first_i : first_block_q;
 				last_block_q <= data_v_i ? block_last_i : last_block_q;
 			end
-			S_F: begin
+			S_F:
+			S_F_END: begin
 				first_block_q <= first_block_q;
 				last_block_q <= last_block_q;
 			end
@@ -140,6 +143,15 @@ module blake2 #(
 			end
 		endcase
 	end
+
+	wire unusued_f_cnt_q;
+	always @(posedge clk) 
+		case (fsm_q)
+			S_F: {unused_f_cnt_q, round_q, g_idx_q} <= {round_q, g_idx_q} + 'b1;
+			default: {round_q, g_idx_q} <= '0;
+		endcase
+	end
+	assign f_finished = {rount_q, g_idx_q} == { R , 3'd7};
 
 	//-------------
 	//
