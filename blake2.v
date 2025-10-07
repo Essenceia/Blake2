@@ -111,7 +111,7 @@ module blake2 #(
 	localparam S_F_END = 'd3; // write back h, save on mux on path to write back v to h
 	localparam S_RES = 'd4;
 
-	always @(posedge clk)
+	always @(posedge clk) begin
 		if (~nreset) begin
 			first_block_q <= 1'b0;
 			last_block_q <= 1'b0;
@@ -124,9 +124,10 @@ module blake2 #(
 				S_F_END: fsm_q <= last_block_q ? S_RES : S_WAIT_DATA;
 				S_RES: fsm_q <= res_cnt_q == 'd31 ? S_IDLE: S_RES;
 			endcase
+		end
 	end
 
-	always @(posedge clk)
+	always @(posedge clk) begin
 		case (fsm_q)
 			S_WAIT_DATA: begin
 				first_block_q <= data_v_i ? block_first_i : first_block_q;
@@ -145,7 +146,7 @@ module blake2 #(
 	end
 
 	wire unusued_f_cnt_q;
-	always @(posedge clk) 
+	always @(posedge clk) begin
 		case (fsm_q)
 			S_F: {unused_f_cnt_q, round_q, g_idx_q} <= {round_q, g_idx_q} + 'b1;
 			default: {round_q, g_idx_q} <= '0;
@@ -207,14 +208,6 @@ module blake2 #(
 
 		
 
-    // do 10(s)/12(b) rounds
-    reg unused_g_idx_q;
-    always @(posedge clk) begin
-		// TODO 
-		{unused_g_idx_q, g_idx_q} <= g_idx_q + 'd1;
-	end
-
-	
 	genvar v_idx;
 	generate
 		for(v_idx = 0; v_idx<16; v_idx=v_idx+1 ) begin : loop_v_idx
@@ -330,38 +323,40 @@ module blake2 #(
 	);
 
 	always @(posedge clk) begin
-		if ((g_idx_q == 'd0) | (g_idx_q == 'd4))
-			v_q[0] <= a;
-		if ((g_idx_q == 'd1) | (g_idx_q == 'd5))
-			v_q[1] <= a;	
-		if ((g_idx_q == 'd2) | (g_idx_q == 'd6))
-			v_q[2] <= a;		
-		if ((g_idx_q == 'd3) | (g_idx_q == 'd7))
-			v_q[3] <= a;
-		if ((g_idx_q == 'd0) | (g_idx_q == 'd7))
-			v_q[4] <= b;	
-		if ((g_idx_q == 'd1) | (g_idx_q == 'd4))
-			v_q[5] <= b;	
-		if ((g_idx_q == 'd2) | (g_idx_q == 'd5))
-			v_q[6] <= b;	
-		if ((g_idx_q == 'd3) | (g_idx_q == 'd6))
-			v_q[7] <= b;	
-		if ((g_idx_q == 'd0) | (g_idx_q == 'd6))
-			v_q[8] <= c;	
-		if ((g_idx_q == 'd1) | (g_idx_q == 'd7))
-			v_q[9] <= c;	
-		if ((g_idx_q == 'd2) | (g_idx_q == 'd4))
-			v_q[10] <= c;	
-		if ((g_idx_q == 'd3) | (g_idx_q == 'd5))
-			v_q[11] <= c;			
-		if ((g_idx_q == 'd0) | (g_idx_q == 'd5))
-			v_q[12] <= d;	
-		if ((g_idx_q == 'd1) | (g_idx_q == 'd6))
-			v_q[13] <= d;	
-		if ((g_idx_q == 'd2) | (g_idx_q == 'd7))
-			v_q[14] <= d;	
-		if ((g_idx_q == 'd3) | (g_idx_q == 'd4))
-			v_q[15] <= d;		
+		if (fsm_q == S_F) begin
+			if ((g_idx_q == 'd0) | (g_idx_q == 'd4))
+				v_q[0] <= a;
+			if ((g_idx_q == 'd1) | (g_idx_q == 'd5))
+				v_q[1] <= a;	
+			if ((g_idx_q == 'd2) | (g_idx_q == 'd6))
+				v_q[2] <= a;		
+			if ((g_idx_q == 'd3) | (g_idx_q == 'd7))
+				v_q[3] <= a;
+			if ((g_idx_q == 'd0) | (g_idx_q == 'd7))
+				v_q[4] <= b;	
+			if ((g_idx_q == 'd1) | (g_idx_q == 'd4))
+				v_q[5] <= b;	
+			if ((g_idx_q == 'd2) | (g_idx_q == 'd5))
+				v_q[6] <= b;	
+			if ((g_idx_q == 'd3) | (g_idx_q == 'd6))
+				v_q[7] <= b;	
+			if ((g_idx_q == 'd0) | (g_idx_q == 'd6))
+				v_q[8] <= c;	
+			if ((g_idx_q == 'd1) | (g_idx_q == 'd7))
+				v_q[9] <= c;	
+			if ((g_idx_q == 'd2) | (g_idx_q == 'd4))
+				v_q[10] <= c;	
+			if ((g_idx_q == 'd3) | (g_idx_q == 'd5))
+				v_q[11] <= c;			
+			if ((g_idx_q == 'd0) | (g_idx_q == 'd5))
+				v_q[12] <= d;	
+			if ((g_idx_q == 'd1) | (g_idx_q == 'd6))
+				v_q[13] <= d;	
+			if ((g_idx_q == 'd2) | (g_idx_q == 'd7))
+				v_q[14] <= d;	
+			if ((g_idx_q == 'd3) | (g_idx_q == 'd4))
+				v_q[15] <= d;	
+		end	
 	end
 
 
@@ -387,24 +382,9 @@ module blake2 #(
 			assign h_next[(h_idx+1)*W-1:h_idx*W] = f_h[h_idx] ^ v_q[h_idx] ^ v_q[h_idx+8];
 		end
 	endgenerate
+
+	always @(posedge clk) 
+		if (fsm_q == S_F_END) 
+			h_q <= h_next;
 	
-	// FSM : count to 12 
-	// 0 1 2 3 4 5 6 7 8 9 10 11 12
-	// v v v v v v v v v v v  v  h
-	//                           fr
-	always @(posedge clk)
-	begin
-		if(~nreset | final_round) begin
-			round_q <= 4'b0000;
-		end
-		else if(round_en) begin
-			round_q <= round_next;
-		end
-	end
-	assign round_en   = valid_i | |(round_q); 
-	assign round_next = round_q + {3'd0, g_idx_q == 3'd7};
-	// output is enabled ( valid )
-	assign v_en = round_en & ~final_round;
-	assign final_round = ( round_q == R );
-	assign valid_o     = final_round;
 endmodule
