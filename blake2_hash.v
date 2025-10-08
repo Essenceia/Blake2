@@ -20,6 +20,7 @@
 //                constants = | (32, 24, 16, 63) | (16, 12,  8,  7) |
 //              --------------+------------------+------------------+
 
+/*
 module blake2b_hash512(
 	input clk,
 	input nreset,
@@ -37,15 +38,25 @@ module blake2b_hash512(
 		.h_o(hash_o)
 	);
 endmodule
+*/
 
 module blake2s_hash256(
 	input          clk,
 	input 	       nreset,
 
-	input 	       valid_i,
-	input  [511:0] data_i,
-	output         hash_v_o,
-	output [255:0] hash_o
+	input [7:0]         kk_i,
+	input [7:0]         nn_i,
+	input [BB-1:0]      ll_i,
+
+	input wire          block_first_i,               
+	input wire          block_last_i,               
+	
+	input        data_v_i,
+	input [3:0]  data_idx_i,	
+	input [7:0]  data_i,
+	
+	output       finished_o,
+	output [7:0] h_o
 	);
 	blake2 #( 
 		.NN_b(8'b0010_0000),
@@ -58,9 +69,19 @@ module blake2s_hash256(
 		) m_hash256(
 		.clk(clk),
 		.nreset(nreset),
-		.valid_i(valid_i),
-		.d_i(data_i),
-		.valid_o(hash_v_o),
-		.h_o(hash_o)
+
+		.kk_i(kk_i),
+		.nn_i(nn_i),
+		.ll_i(ll_i),
+		
+		.block_first_i(block_first_i),
+		.block_last_i(block_last_i),
+		
+		.data_v_i(data_v_i),
+		.data_idx_i(data_idx_i),
+		.data_i(data_i),
+		
+		.finished_o(finished_o),
+		.h_o(h_o)
 	);
 endmodule

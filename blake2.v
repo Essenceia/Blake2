@@ -25,18 +25,20 @@ module blake2 #(
 
 	input [7:0]         kk_i,
 	input [7:0]         nn_i,
-	input [63:0]        ll_i,
+	input [BB-1:0]      ll_i,
 
 	input wire          block_first_i,               
 	input wire          block_last_i,               
 	
-	input        data_v_i,	
+	input        data_v_i,
+	input [3:0]  data_idx_i,	
 	input [7:0]  data_i,
 	
-	output              valid_o,
-	output [(W*8) -1:0] h_o
+	output       finished_o,
+	output [7:0] h_o
 	);
 	localparam BB_clog2 = $clog2(BB); 
+	localparam IB_CNT_W = BB - $clog2(BB);
 	 
 	reg  [2:0] g_idx_q; // G function idx, sub-round
 	reg  [3:0] round_q;
@@ -44,14 +46,15 @@ module blake2 #(
 	wire       round_en;
 	wire       final_round;
 
-	wire [63:0]  t;	
-	reg  [57:0]  block_idx_q;
+	wire [BB-1:0]  t;	
+	reg  [IB_CNT_W-1:0]  block_idx_q;
 
 	wire [W-1:0] v_init[15:0];
 	wire [W-1:0] v_init_2[15:0];
 	wire [W-1:0] v_current[15:0];
 	reg  [W-1:0] v_q[15:0];
-	wire [W-1:0] h_next[7:0];
+	wire [W-1:0] h_last[7:0];
+	wire [W*8-1:0] h_res_next;
 	reg  [W-1:0] h_q[7:0];
 	
 	reg  [W*16-1:0] m_q;
@@ -133,8 +136,7 @@ module blake2 #(
 				first_block_q <= data_v_i ? block_first_i : first_block_q;
 				last_block_q <= data_v_i ? block_last_i : last_block_q;
 			end
-			S_F:
-			S_F_END: begin
+			S_F, S_F_END: begin
 				first_block_q <= first_block_q;
 				last_block_q <= last_block_q;
 			end
@@ -145,14 +147,30 @@ module blake2 #(
 		endcase
 	end
 
-	wire unusued_f_cnt_q;
+	wire unused_f_cnt_q;
 	always @(posedge clk) begin
 		case (fsm_q)
 			S_F: {unused_f_cnt_q, round_q, g_idx_q} <= {round_q, g_idx_q} + 'b1;
 			default: {round_q, g_idx_q} <= '0;
 		endcase
 	end
-	assign f_finished = {rount_q, g_idx_q} == { R , 3'd7};
+	assign f_finished = {round_q, g_idx_q} == { R , 3'd7};
+
+	reg unused_block_idx_q;	
+	always @(posedge clk) begin
+		if (S_IDLE | S_RES) 
+			block_idx_q <= '0;
+		else 
+			{unused_block_idx_q, block_idx_q} <= block_idx_q + {{IB_CNT_W-1{1'b0}},1'd1};
+	end
+
+	reg unused_res_cnt_q;
+	always @(posedge clk) begin
+		case(fsm_q)
+			S_RES: {unused_res_cnt_q, res_cnt_q} <= res_cnt_q + 'd1;
+			default: res_cnt_q <= '0;
+		endcase
+	end
 
 	//-------------
 	//
@@ -379,12 +397,19 @@ module blake2 #(
 	// END FOR.
 	generate
 		for(h_idx=0; h_idx<8; h_idx=h_idx+1 ) begin : loop_h_o
-			assign h_next[(h_idx+1)*W-1:h_idx*W] = f_h[h_idx] ^ v_q[h_idx] ^ v_q[h_idx+8];
+			assign h_last[(h_idx+1)*W-1:h_idx*W] = f_h[h_idx] ^ v_q[h_idx] ^ v_q[h_idx+8];
+			assign h_res_next[(h_idx+1)*W-1:h_idx*W] = h_q[h_idx];
 		end
 	endgenerate
 
 	always @(posedge clk) 
 		if (fsm_q == S_F_END) 
-			h_q <= h_next;
+			h_q <= h_last;
+		else if (fsm_q == S_RES)
+			h_q <= {8'b0, h_res_next[W*8-1:8]};
+
+	// output streaming
+	always @(posedge clk)
+		h_o <= h_q[7:0];
 	
 endmodule
